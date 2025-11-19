@@ -11,6 +11,14 @@ mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB Connected Successfully");
-    app.listen(PORT, () => console.log(` Server running on port ${PORT}`));
+    
+    // ✅ UPDATED: Listen on 0.0.0.0 to allow mobile device access
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📱 Local: http://localhost:${PORT}`);
+      console.log(`📱 Network: http://YOUR_IP:${PORT}`);
+      console.log(`🧪 Test endpoint: http://YOUR_IP:${PORT}/api/test`);
+    });
   })
   .catch((err) => console.error("❌ MongoDB Connection Failed:", err));
+
