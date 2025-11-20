@@ -11,7 +11,7 @@ const otpExpiryMap = new Map();
 
 const userSignup = async (req, res) => {
   try {
-    const { name, email, password, phoneNumber, bloodType, location } = req.body;
+    const { name, email, password, phoneNumber, bloodType } = req.body;
 
     const isExist = await User.findOne({ email });
     if (isExist) {
@@ -32,7 +32,6 @@ const userSignup = async (req, res) => {
       phoneNumber,
       password,
       bloodType,
-      location,
       otp,
       userType,
       organizationId,
@@ -407,3 +406,4 @@ export {
   forgotPassword,
   resetPassword,
 };
+
