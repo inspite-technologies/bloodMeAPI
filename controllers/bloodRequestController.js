@@ -4,32 +4,41 @@ import AcceptRequest from "../models/acceptRequestSchema.js";
 
 const bloodRequest = async (req, res) => {
   try {
-    const { requestedBy, requesterId, bloodGroup, units, location, priority } =
-      req.body;
+    const {
+      requestedBy,
+      requesterId,
+      bloodGroup,
+      units,
+      hospitalName,   // (Consider renaming to hospitalName in schema)
+      phoneNumber,
+      notes,
+      location,
+      priority
+    } = req.body;
 
-    if (
-      !requestedBy ||
-      !bloodGroup ||
-      !units ||
-      !location ||
-      !location.coordinates
-    ) {
-      return res
-        .status(400)
-        .json({ msg: "All required fields must be provided" });
+    // Validate required fields
+    if (!requestedBy || !bloodGroup || !units || !hospitalName || !phoneNumber) {
+      return res.status(400).json({
+        msg: "Please fill all required fields: bloodGroup, units, hospitalName, phoneNumber"
+      });
     }
 
+    // Validate requesterId only if requestedBy = "User"
     if (requestedBy === "User" && !requesterId) {
-      return res
-        .status(400)
-        .json({ msg: "Requester ID is required for User requests" });
+      return res.status(400).json({
+        msg: "Requester ID is required for User requests",
+      });
     }
 
+    // Prepare new request object
     const newRequest = new BloodRequest({
       requesterId: requestedBy === "User" ? requesterId : null,
       bloodGroup,
       units,
-      location,
+      hospitalName,
+      phoneNumber,
+      notes,
+      location: location || undefined,
       priority: priority || "moderate",
     });
 
@@ -39,6 +48,7 @@ const bloodRequest = async (req, res) => {
       msg: "Blood request created successfully",
       data: savedRequest,
     });
+
   } catch (error) {
     console.error("Error creating blood request:", error);
     res.status(500).json({
@@ -47,6 +57,7 @@ const bloodRequest = async (req, res) => {
     });
   }
 };
+
 
 const acceptBloodRequest = async (req, res) => {
   try {

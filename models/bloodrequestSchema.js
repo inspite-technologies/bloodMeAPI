@@ -19,6 +19,17 @@ const bloodRequestSchema = new Schema(
       required: true,
       min: 1,
     },
+    hospitalName:{
+      type:String,
+      required:true
+    },
+    phoneNumber:{
+      type:String,
+      required:true
+    },
+    notes:{
+      type:String
+    },
     location: {
       type: {
         type: String,
@@ -27,7 +38,8 @@ const bloodRequestSchema = new Schema(
       },
       coordinates: {
         type: [Number],
-        required: true,
+        required: false,
+        //true
       },
     },
     status: {
