@@ -5,10 +5,24 @@ const Schema = mongoose.Schema;
 
 const organizationSchema = new Schema(
   {
-    name: {
+    orgName: {
       type: String,
       required: true,
       trim: true,
+    },
+    organizationType:{
+      type:String,
+      required:true,
+      enum:['Hospital','Blood Bank','NGO','Medical College']
+    },
+    licenseNo:{
+      type:String,
+      required:true,
+      unique:true
+    },
+    contactPerson:{
+      type:String,
+      required:true
     },
     email: {
       type: String,
@@ -27,6 +41,18 @@ const organizationSchema = new Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    city:{
+      type:String,
+      required:true
+    },
+    state:{
+      type:String,
+      required:true
+    },
+    pincode:{
+      type:Number,
+      required:true
     },
     password: {
       type: String,

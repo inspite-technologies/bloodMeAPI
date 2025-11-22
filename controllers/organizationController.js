@@ -4,20 +4,41 @@ import generateToken from "../utils/generateToken.js";
 
 const organizationSignup = async (req, res) => {
   try {
-    const { name, email, phone, address, password, location } = req.body;
-
-    const orgExists = await Organization.findOne({ email });
-    if (orgExists) {
-      return res.status(400).json({ msg: "Organization already exists" });
-    }
-
-    const newOrg = new Organization({
-      name,
+    const {
+      orgName,
+      organizationType,
+      licenseNo,
+      contactPerson,
       email,
       phone,
       address,
+      city,
+      state,
+      pincode,
       password,
       location,
+    } = req.body;
+
+    if (!location || !location.lat || !location.lng) {
+      return res.status(400).json({ msg: "Location must include lat and lng" });
+    }
+
+    const newOrg = new Organization({
+      orgName,
+      organizationType,
+      licenseNo,
+      contactPerson,
+      email,
+      phone,
+      address,
+      city,
+      state,
+      pincode,
+      password,
+      location: {
+        type: "Point",          
+        coordinates: [location.lng, location.lat], 
+      },
     });
 
     await newOrg.save();
@@ -29,11 +50,13 @@ const organizationSignup = async (req, res) => {
       token,
       data: newOrg,
     });
+
   } catch (error) {
     console.error("Error during organization signup:", error);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
+
 
 const organizationLogin = async (req, res) => {
   try {
@@ -83,7 +106,9 @@ const fetchOrgDetails = async (req, res) => {
 const updateOrgInfo = async (req, res) => {
   try {
     const id = req.organization._id;
-    const updateDetails = await Organization.findByIdAndUpdate(id,req.body,{new:true});
+    const updateDetails = await Organization.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
     if (!updateDetails) {
       return res.status(404).json({
         msg: "invalid id or data not found",
@@ -97,8 +122,6 @@ const updateOrgInfo = async (req, res) => {
     console.error("error during updating the details");
   }
 };
-
-
 
 export {
   organizationSignup,
