@@ -19,7 +19,6 @@ const userSignup = async (req, res) => {
     }
 
     const organizationId = req.organization ? req.organization._id : null;
-    console.log("org id..");
 
     const userType = organizationId ? "organization" : "individual";
 

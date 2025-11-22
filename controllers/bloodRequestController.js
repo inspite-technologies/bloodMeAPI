@@ -5,7 +5,6 @@ import AcceptRequest from "../models/acceptRequestSchema.js";
 const bloodRequest = async (req, res) => {
   try {
     const {
-      requestedBy,
       requesterId,
       bloodGroup,
       units,
@@ -17,14 +16,14 @@ const bloodRequest = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!requestedBy || !bloodGroup || !units || !hospitalName || !phoneNumber) {
+    if ( !bloodGroup || !units || !hospitalName || !phoneNumber) {
       return res.status(400).json({
         msg: "Please fill all required fields: bloodGroup, units, hospitalName, phoneNumber"
       });
     }
 
     // Validate requesterId only if requestedBy = "User"
-    if (requestedBy === "User" && !requesterId) {
+    if ( !requesterId) {
       return res.status(400).json({
         msg: "Requester ID is required for User requests",
       });
@@ -32,7 +31,7 @@ const bloodRequest = async (req, res) => {
 
     // Prepare new request object
     const newRequest = new BloodRequest({
-      requesterId: requestedBy === "User" ? requesterId : null,
+      requesterId,
       bloodGroup,
       units,
       hospitalName,
