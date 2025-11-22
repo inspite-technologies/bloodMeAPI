@@ -46,7 +46,7 @@ const userSchema = new Schema(
 
     userType: {
       type: String,
-      enum: ["individual", "organization_user"],
+      enum: ["individual", "organization"],
       required: true,
       default: "individual",
     },

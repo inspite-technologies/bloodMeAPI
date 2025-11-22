@@ -19,7 +19,9 @@ const userSignup = async (req, res) => {
     }
 
     const organizationId = req.organization ? req.organization._id : null;
-    const userType = organizationId ? "organization_user" : "individual";
+    console.log("org id..");
+
+    const userType = organizationId ? "organization" : "individual";
 
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
@@ -50,7 +52,6 @@ const userSignup = async (req, res) => {
     res.status(500).json({ error: "Signup failed", details: err.message });
   }
 };
-
 
 const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
@@ -257,87 +258,6 @@ const getUserDetails = async (req, res) => {
   }
 };
 
-const updateUserDetails = async (req, res) => {
-  try {
-    const loggedInUserId = req.user._id; // user performing update
-    const targetUserId = req.params.userId || loggedInUserId; // user to be updated
-
-    const loggedInUser = await User.findById(loggedInUserId);
-    const targetUser = await User.findById(targetUserId);
-
-    if (!loggedInUser || !targetUser) {
-      return res.status(404).json({ msg: "User not found" });
-    }
-
-    //  Determine permissions
-    const isSelfUpdate = loggedInUserId.toString() === targetUserId.toString();
-
-    const isOrgAuthorized =
-      loggedInUser.userType === "organization_user" &&
-      loggedInUser.organizationId &&
-      targetUser.organizationId &&
-      loggedInUser.organizationId.toString() ===
-        targetUser.organizationId.toString();
-
-    if (!isSelfUpdate && !isOrgAuthorized) {
-      return res.status(403).json({
-        msg: "You are not authorized to update this user's details",
-      });
-    }
-
-    //  Optional: Prevent userType and organizationId from being tampered with
-    const disallowedFields = [
-      "userType",
-      "organizationId",
-      "_id",
-      "otp",
-      "isVerified",
-    ];
-    disallowedFields.forEach((field) => delete req.body[field]);
-
-    const updatedUser = await User.findByIdAndUpdate(
-      targetUserId,
-      {
-        ...req.body,
-        updatedBy: loggedInUserId, // audit tracking
-      },
-      { new: true }
-    );
-
-    res.status(200).json({
-      msg: "User details updated successfully",
-      data: updatedUser,
-    });
-  } catch (err) {
-    console.error("Error updating user details:", err);
-    res.status(500).json({
-      msg: "Internal Server Error",
-      error: err.message,
-    });
-  }
-};
-
-const removeUserDetails = async (req, res) => {
-  try {
-    const id = req.params.id;
-    const deleteUser = await User.findByIdAndDelete(id);
-    if (!deleteUser) {
-      return res.status(400).json({
-        msg: "invalid user id",
-      });
-    }
-    return res.status(200).json({
-      msg: "user details removed successfully",
-    });
-  } catch (err) {
-    console.error("error during deleting user", err);
-    return res.status(500).json({
-      msg: "Internal Server Error",
-      error: err.message,
-    });
-  }
-};
-
 const getNearbyEligibleDonors = async (req, res) => {
   try {
     const { latitude, longitude, bloodGroup, radius = 5000 } = req.body;
@@ -392,6 +312,34 @@ const getNearbyEligibleDonors = async (req, res) => {
   }
 };
 
+const leaveOrg = async (req, res) => {
+  try {
+    const id = req.user._id;
+
+    console.log("id is in leave",id);
+    
+    const isExist = await User.findByIdAndUpdate(
+      id,
+      { organizationId: null, userType: "individual" },
+      { new: true }
+    );
+    if (isExist) {
+      return res.status(200).json({
+        msg: "user leave the organization successfully",
+      });
+    }
+    return res.status(400).json({
+      msg:"error during leaving org"
+    })
+  } catch (err) {
+    console.error("Error fetching nearby eligible donors:", err);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+      error: err.message,
+    });
+  }
+};
+
 //if exist user or any user in db
 
 export {
@@ -401,9 +349,7 @@ export {
   getAllUsers,
   getUserDetails,
   getNearbyEligibleDonors,
-  updateUserDetails,
-  removeUserDetails,
   forgotPassword,
   resetPassword,
+  leaveOrg,
 };
-

@@ -1,6 +1,7 @@
 import Organization from "../models/organizationSchema.js";
 import protect from "../middleWare/userMiddleWare.js";
 import generateToken from "../utils/generateToken.js";
+import User from '../models/userSchema.js'
 
 const organizationSignup = async (req, res) => {
   try {
@@ -43,11 +44,9 @@ const organizationSignup = async (req, res) => {
 
     await newOrg.save();
 
-    const token = generateToken(newOrg._id);
 
     res.status(201).json({
       msg: "Organization registered successfully",
-      token,
       data: newOrg,
     });
 
@@ -88,6 +87,8 @@ const organizationLogin = async (req, res) => {
 const fetchOrgDetails = async (req, res) => {
   try {
     const id = req.organization._id;
+    console.log("sadasads",id);
+    
     const getOrgDetails = await Organization.findById(id);
     if (!getOrgDetails) {
       return res.status(404).json({
@@ -123,9 +124,97 @@ const updateOrgInfo = async (req, res) => {
   }
 };
 
+const getAllUsers = async (req, res) => {
+  try {
+    const orgId = req.organization._id; // from middleware
+
+    const users = await User.find({
+      userType: "organization",
+      organizationId: orgId,
+    });
+
+    return res.status(200).json({
+      msg: "Users fetched successfully",
+      users,
+    });
+  } catch (err) {
+    console.error("Error during fetching users", err);
+    res.status(500).json({
+      msg: err.message,
+    });
+  }
+};
+const removeUserDetails = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const deleteUser = await User.findByIdAndDelete(id);
+    if (!deleteUser) {
+      return res.status(400).json({
+        msg: "invalid user id",
+      });
+    }
+    return res.status(200).json({
+      msg: "user details removed successfully",
+    });
+  } catch (err) {
+    console.error("error during deleting user", err);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+      error: err.message,
+    });
+  }
+};
+const updateUserDetails = async (req, res) => {
+  try {
+    // logged-in org ID
+    const loggedInOrgId = req.organization._id;
+
+    // user to update
+    const targetUserId = req.params.id;
+
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    // Ensure user belongs to org
+    if (
+      !targetUser.organizationId ||
+      targetUser.organizationId.toString() !== loggedInOrgId.toString()
+    ) {
+      return res.status(403).json({
+        msg: "You are not authorized to update this user",
+      });
+    }
+
+    // Block restricted fields
+    const blocked = ["userType", "organizationId", "_id", "otp", "isVerified"];
+    blocked.forEach((key) => delete req.body[key]);
+
+    const updatedUser = await User.findByIdAndUpdate(
+      targetUserId,
+      { ...req.body, updatedBy: loggedInOrgId },
+      { new: true }
+    );
+
+    return res.status(200).json({
+      msg: "User updated successfully",
+      data: updatedUser,
+    });
+  } catch (err) {
+    console.error("Error updating user details:", err);
+    res.status(500).json({ msg: err.message });
+  }
+};
+
+
+
 export {
   organizationSignup,
   organizationLogin,
   fetchOrgDetails,
   updateOrgInfo,
+  getAllUsers,
+  removeUserDetails,
+  updateUserDetails
 };
