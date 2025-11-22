@@ -25,7 +25,7 @@ const userSignup = async (req, res) => {
 
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
-    const expiryTime = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+    const expiryTime = Date.now() + 10 * 60 * 1000; // 5 minutes expiry
     otpExpiryMap.set(email, expiryTime);
 
     const newUser = await User.create({
@@ -72,7 +72,7 @@ const verifyOtp = async (req, res) => {
   }
 
   // Check OTP match
-  if (user.otp === otp) {
+  if (user.otp === Number(otp)) {
     user.isVerified = true;
     user.otp = null;
     await user.save();
