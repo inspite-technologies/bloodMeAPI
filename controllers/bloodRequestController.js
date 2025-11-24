@@ -8,24 +8,32 @@ const bloodRequest = async (req, res) => {
       requesterId,
       bloodGroup,
       units,
-      hospitalName,   
+      hospitalName,
       phoneNumber,
       notes,
-      location,
+      latitude,
+      longitude,
       priority
     } = req.body;
 
     // Validate required fields
-    if ( !bloodGroup || !units || !hospitalName || !phoneNumber) {
+    if (!bloodGroup || !units || !hospitalName || !phoneNumber) {
       return res.status(400).json({
         msg: "Please fill all required fields: bloodGroup, units, hospitalName, phoneNumber"
       });
     }
 
-    // Validate requesterId only if requestedBy = "User"
-    if ( !requesterId) {
+    // Validate requesterId 
+    if (!requesterId) {
       return res.status(400).json({
-        msg: "Requester ID is required for User requests",
+        msg: "Requester ID is required",
+      });
+    }
+
+    // Validate lat / long
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        msg: "Latitude and Longitude are required"
       });
     }
 
@@ -37,7 +45,10 @@ const bloodRequest = async (req, res) => {
       hospitalName,
       phoneNumber,
       notes,
-      location: location || undefined,
+      location: {
+        type: "Point",
+        coordinates: [longitude, latitude], // IMPORTANT ORDER
+      },
       priority: priority || "moderate",
     });
 
@@ -56,7 +67,6 @@ const bloodRequest = async (req, res) => {
     });
   }
 };
-
 
 const acceptBloodRequest = async (req, res) => {
   try {
