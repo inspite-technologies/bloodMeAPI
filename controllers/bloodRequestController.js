@@ -166,63 +166,15 @@ const rejectBloodRequest = async (req, res) => {
 // get all where active
 const getAllBloodRequest = async (req, res) => {
   try {
-    const { latitude, longitude } = req.body; // user calling the API
-
-    if (!latitude || !longitude) {
-      return res.status(400).json({ msg: "User location is required" });
-    }
-
-    // Step 1: Fetch Active Blood Requests + Full User Details
-    const requests = await BloodRequest.find({ isActive: true })
-      .populate("requestedBy"); // Get full user details
-
-    if (!requests.length) {
-      return res.status(404).json({ msg: "No active blood requests found" });
-    }
-
-    // Step 2: Add Distance + Requester Full Detail
-    const finalResult = requests.map((reqItem) => {
-      const requester = reqItem.requestedBy;
-
-      if (!requester || !requester.location) {
-        return {
-          ...reqItem._doc,
-          requesterDetails: null,
-          distance: null,
-        };
-      }
-
-      const [reqLon, reqLat] = requester.location.coordinates;
-
-      const distance = calculateDistance(
-        latitude,
-        longitude,
-        reqLat,
-        reqLon
-      );
-
-      return {
-        ...reqItem._doc,
-        requesterDetails: requester, // FULL DETAILS OF PERSON WHO MADE THE REQUEST
-        distance: distance,
-      };
-    });
-
+    const getDetails = await BloodRequest.find({ isActive: true });
     return res.status(200).json({
-      msg: "Blood requests fetched successfully",
-      count: finalResult.length,
-      data: finalResult,
+      msg: "details fetched successfully",
+      data: getDetails,
     });
-
   } catch (err) {
-    console.error("Error in blood request fetch:", err);
-    return res.status(500).json({
-      msg: "Internal Server Error",
-      error: err.message,
-    });
+    console.error("error during fetching the data", err);
   }
 };
-
 
 // get by specific id of blood request 
 const getBloodRequest = async (req, res) => {
