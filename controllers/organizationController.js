@@ -166,34 +166,41 @@ const removeUserDetails = async (req, res) => {
 };
 const updateUserDetails = async (req, res) => {
   try {
-    // logged-in org ID
-    const loggedInOrgId = req.organization._id;
+    let targetUserId;
 
-    // user to update
-    const targetUserId = req.params.id;
+    // Case 1: Organization updating another user
+    if (req.organization) {
+      const loggedInOrgId = req.organization._id;
+      targetUserId = req.params.id; // org updates a user
 
-    const targetUser = await User.findById(targetUserId);
-    if (!targetUser) {
-      return res.status(404).json({ msg: "User not found" });
+      const targetUser = await User.findById(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ msg: "User not found" });
+      }
+
+      // Check same org
+      if (
+        !targetUser.organizationId ||
+        targetUser.organizationId.toString() !== loggedInOrgId.toString()
+      ) {
+        return res.status(403).json({
+          msg: "You are not authorized to update this user",
+        });
+      }
     }
 
-    // Ensure user belongs to org
-    if (
-      !targetUser.organizationId ||
-      targetUser.organizationId.toString() !== loggedInOrgId.toString()
-    ) {
-      return res.status(403).json({
-        msg: "You are not authorized to update this user",
-      });
+    // Case 2: Normal user updating their own profile
+    else if (req.user) {
+      targetUserId = req.user._id;
     }
 
-    // Block restricted fields
     const blocked = ["userType", "organizationId", "_id", "otp", "isVerified"];
-    blocked.forEach((key) => delete req.body[key]);
+    const updates = { ...req.body };
+    blocked.forEach((key) => delete updates[key]);
 
     const updatedUser = await User.findByIdAndUpdate(
       targetUserId,
-      { ...req.body, updatedBy: loggedInOrgId },
+      updates,
       { new: true }
     );
 

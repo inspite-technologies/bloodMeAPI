@@ -8,7 +8,7 @@ const bloodRequest = async (req, res) => {
       requesterId,
       bloodGroup,
       units,
-      hospitalName,   // (Consider renaming to hospitalName in schema)
+      hospitalName,   
       phoneNumber,
       notes,
       location,
