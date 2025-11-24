@@ -53,35 +53,54 @@ const userSignup = async (req, res) => {
 };
 
 const verifyOtp = async (req, res) => {
-  const { email, otp } = req.body;
-  const user = await User.findOne({ email });
+  try {
+    const { email, otp, fcmToken } = req.body;   // <-- Read FCM token from frontend
+    const user = await User.findOne({ email });
 
-  if (!user) return res.status(404).json({ msg: "User not found" });
+    if (!user) return res.status(404).json({ msg: "User not found" });
 
-  // Check expiry from Map
-  const expiryTime = otpExpiryMap.get(email);
-  if (!expiryTime || Date.now() > expiryTime) {
-    // OTP expired — delete user from DB
-    await User.deleteOne({ email });
-    otpExpiryMap.delete(email);
+    // Check expiry from Map
+    const expiryTime = otpExpiryMap.get(email);
+    if (!expiryTime || Date.now() > expiryTime) {
+      // OTP expired — delete user from DB
+      await User.deleteOne({ email });
+      otpExpiryMap.delete(email);
 
-    return res.status(400).json({
-      msg: "OTP expired. Your registration has been removed. Please sign up again.",
+      return res.status(400).json({
+        msg: "OTP expired. Your registration has been removed. Please sign up again.",
+      });
+    }
+
+    // Check OTP match
+    if (user.otp === Number(otp)) {
+      user.isVerified = true;
+      user.otp = null;
+
+      // ⭐ SAVE FCM TOKEN ONLY AFTER SUCCESSFUL OTP
+      if (fcmToken) {
+        user.fcmToken = fcmToken;
+      }
+
+      await user.save();
+      otpExpiryMap.delete(email);
+
+      return res.status(200).json({
+        msg: "Email verified successfully",
+        fcmSaved: fcmToken ? true : false,
+      });
+    }
+
+    return res.status(400).json({ msg: "Invalid OTP" });
+
+  } catch (err) {
+    console.error("OTP verification error:", err);
+    return res.status(500).json({
+      msg: "Server Error",
+      error: err.message,
     });
   }
-
-  // Check OTP match
-  if (user.otp === Number(otp)) {
-    user.isVerified = true;
-    user.otp = null;
-    await user.save();
-    otpExpiryMap.delete(email);
-
-    return res.status(200).json({ msg: "Email verified successfully" });
-  }
-
-  return res.status(400).json({ msg: "Invalid OTP" });
 };
+
 
 const userLogin = async (req, res) => {
   const { email, password } = req.body;
