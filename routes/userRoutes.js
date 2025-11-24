@@ -5,7 +5,7 @@ import protect from '../middleWare/userMiddleWare.js'
 const app = express.Router()
 
 app.route('/').post(userSignup).get(getAllUsers).put(protect,updateUserDetails)
-app.route('/near-by').post(getNearbyEligibleDonors)
+app.route('/near-by').post(protect,getNearbyEligibleDonors)
 app.route('/verify').post(verifyOtp)
 app.route("/forgot-password").post(forgotPassword);
 app.route("/reset-password/:token").post(resetPassword)

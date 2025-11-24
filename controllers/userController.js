@@ -259,6 +259,7 @@ const getUserDetails = async (req, res) => {
 
 const getNearbyEligibleDonors = async (req, res) => {
   try {
+    const userId = req.user._id;
     const { latitude, longitude, bloodGroup, radius = 5000 } = req.body;
 
     if (!latitude || !longitude) {
