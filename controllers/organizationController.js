@@ -171,24 +171,22 @@ const updateUserDetails = async (req, res) => {
     // Case 1: Organization updating another user
     if (req.organization) {
       const loggedInOrgId = req.organization._id;
-      targetUserId = req.params.id; // org updates a user
+      targetUserId = req.params.id;
 
       const targetUser = await User.findById(targetUserId);
       if (!targetUser) {
         return res.status(404).json({ msg: "User not found" });
       }
 
-      // Check same org
       if (
         !targetUser.organizationId ||
         targetUser.organizationId.toString() !== loggedInOrgId.toString()
       ) {
-        return res.status(403).json({
-          msg: "You are not authorized to update this user",
-        });
+        return res
+          .status(403)
+          .json({ msg: "You are not authorized to update this user" });
       }
     }
-
     // Case 2: Normal user updating their own profile
     else if (req.user) {
       targetUserId = req.user._id;
@@ -198,11 +196,21 @@ const updateUserDetails = async (req, res) => {
     const updates = { ...req.body };
     blocked.forEach((key) => delete updates[key]);
 
-    const updatedUser = await User.findByIdAndUpdate(
-      targetUserId,
-      updates,
-      { new: true }
-    );
+    // ⭐ IMPORTANT: Handle latitude & longitude
+    if (req.body.latitude && req.body.longitude) {
+      updates.location = {
+        type: "Point",
+        coordinates: [req.body.longitude, req.body.latitude], // GeoJSON format
+      };
+
+      // Remove from body to avoid storing as separate fields
+      delete updates.latitude;
+      delete updates.longitude;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(targetUserId, updates, {
+      new: true,
+    });
 
     return res.status(200).json({
       msg: "User updated successfully",
@@ -213,6 +221,7 @@ const updateUserDetails = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
+
 
 
 
