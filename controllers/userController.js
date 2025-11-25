@@ -83,7 +83,6 @@ const verifyOtp = async (req, res) => {
       console.log("Before update:", {
         otp: user.otp,
         fcmToken: user.fcmToken,
-        incomingToken: fcmToken,
       });
 
       await user.save();
