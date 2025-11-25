@@ -74,12 +74,12 @@ const verifyOtp = async (req, res) => {
 
     // Check OTP match
     if (user.otp === Number(otp)) {
+      if(fcmToken){
+        user.fcmToken = fcmToken;
+      }
       user.isVerified = true;
       user.otp = null;
 
-      if (fcmToken) {
-        user.fcmToken = fcmToken;
-      }
       console.log("Before update:", {
         otp: user.otp,
         fcmToken: user.fcmToken,
