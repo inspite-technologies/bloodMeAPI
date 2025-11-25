@@ -34,7 +34,6 @@ const userSignup = async (req, res) => {
       password,
       bloodType,
       otp,
-      fcmToken, 
       userType,
       organizationId,
     });
