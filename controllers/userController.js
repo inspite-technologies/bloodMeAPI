@@ -54,7 +54,8 @@ const userSignup = async (req, res) => {
 
 const verifyOtp = async (req, res) => {
   try {
-    const { email, otp, fcmToken } = req.body;   // <-- Read FCM token from frontend
+    const { email, otp, fcmToken } = req.body; // <-- Read FCM token from frontend
+
     const user = await User.findOne({ email });
 
     if (!user) return res.status(404).json({ msg: "User not found" });
@@ -76,10 +77,14 @@ const verifyOtp = async (req, res) => {
       user.isVerified = true;
       user.otp = null;
 
-      // ⭐ SAVE FCM TOKEN ONLY AFTER SUCCESSFUL OTP
       if (fcmToken) {
         user.fcmToken = fcmToken;
       }
+      console.log("Before update:", {
+        otp: user.otp,
+        fcmToken: user.fcmToken,
+        incomingToken: fcmToken,
+      });
 
       await user.save();
       otpExpiryMap.delete(email);
@@ -91,7 +96,6 @@ const verifyOtp = async (req, res) => {
     }
 
     return res.status(400).json({ msg: "Invalid OTP" });
-
   } catch (err) {
     console.error("OTP verification error:", err);
     return res.status(500).json({
@@ -100,7 +104,6 @@ const verifyOtp = async (req, res) => {
     });
   }
 };
-
 
 const userLogin = async (req, res) => {
   const { email, password } = req.body;
@@ -335,8 +338,8 @@ const leaveOrg = async (req, res) => {
   try {
     const id = req.user._id;
 
-    console.log("id is in leave",id);
-    
+    console.log("id is in leave", id);
+
     const isExist = await User.findByIdAndUpdate(
       id,
       { organizationId: null, userType: "individual" },
@@ -348,8 +351,8 @@ const leaveOrg = async (req, res) => {
       });
     }
     return res.status(400).json({
-      msg:"error during leaving org"
-    })
+      msg: "error during leaving org",
+    });
   } catch (err) {
     console.error("Error fetching nearby eligible donors:", err);
     return res.status(500).json({
