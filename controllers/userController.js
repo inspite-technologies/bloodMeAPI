@@ -54,7 +54,9 @@ const userSignup = async (req, res) => {
 
 const verifyOtp = async (req, res) => {
   try {
-    const { email, otp, fcmToken } = req.body; // <-- Read FCM token from frontend
+    const { email, otp, fcmToken } = req.body; 
+    console.log("request body:", req.body);
+    console.log("Received OTP verification request:", { email, otp, fcmToken });
 
     const user = await User.findOne({ email });
 
