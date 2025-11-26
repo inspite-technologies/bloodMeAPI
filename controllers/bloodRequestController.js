@@ -96,7 +96,7 @@ const acceptBloodRequest = async (req, res) => {
 
     await BloodRequest.findByIdAndUpdate(
       requestId,
-      { status: "accepted", isActive: false },
+      { status: "accepted"},
       { new: true }
     );
 

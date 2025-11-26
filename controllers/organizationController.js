@@ -164,6 +164,7 @@ const removeUserDetails = async (req, res) => {
     });
   }
 };
+
 const updateUserDetails = async (req, res) => {
   try {
     let targetUserId;
@@ -196,7 +197,16 @@ const updateUserDetails = async (req, res) => {
     const updates = { ...req.body };
     blocked.forEach((key) => delete updates[key]);
 
-    // ⭐ IMPORTANT: Handle latitude & longitude
+    //  Handle status: completed → set isActive to false
+    if (req.body.status === "completed") {
+      updates.isActive = false;
+      updates.status = "completed";
+    } else if (req.body.status) {
+      // Allow other status values (e.g., "pending", "in-progress")
+      updates.status = req.body.status;
+    }
+
+    //  Handle latitude & longitude for location
     if (req.body.latitude && req.body.longitude) {
       updates.location = {
         type: "Point",
@@ -221,9 +231,6 @@ const updateUserDetails = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
-
-
-
 
 export {
   organizationSignup,

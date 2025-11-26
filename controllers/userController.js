@@ -11,7 +11,7 @@ const otpExpiryMap = new Map();
 
 const userSignup = async (req, res) => {
   try {
-    const { name, email, password, phoneNumber, bloodType } = req.body;
+    const { name, email, dateOfBirth, password, phoneNumber, bloodType,height,weight } = req.body;
 
     const isExist = await User.findOne({ email });
     if (isExist) {
@@ -30,12 +30,15 @@ const userSignup = async (req, res) => {
     const newUser = await User.create({
       name,
       email,
+      dateOfBirth,
       phoneNumber,
       password,
       bloodType,
       otp,
       userType,
       organizationId,
+      height,
+      weight
     });
 
     await sendOtpMail(email, otp);
@@ -54,7 +57,7 @@ const userSignup = async (req, res) => {
 
 const verifyOtp = async (req, res) => {
   try {
-    const { email, otp, fcmToken } = req.body; 
+    const { email, otp, fcmToken } = req.body;
     console.log("request body:", req.body);
     console.log("Received OTP verification request:", { email, otp, fcmToken });
 
@@ -76,7 +79,7 @@ const verifyOtp = async (req, res) => {
 
     // Check OTP match
     if (user.otp === Number(otp)) {
-      if(fcmToken){
+      if (fcmToken) {
         user.fcmToken = fcmToken;
       }
       user.isVerified = true;

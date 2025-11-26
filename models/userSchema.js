@@ -23,6 +23,18 @@ const userSchema = new Schema(
       lowercase: true,
       trim: true,
     },
+    dateOfBirth: {
+      type: Date,
+      required: true,
+    },
+    height: {
+      type: Number, 
+      default: null,
+    },
+    weight: {
+      type: Number, 
+      default: null,
+    },
     bloodType: {
       type: String,
       required: true,
