@@ -80,7 +80,7 @@ const bloodRequest = async (req, res) => {
 const approveRespond = async (req, res) => {
   try {
     const donorId = req.user._id;
-    const { requestId } = req.params;
+    const requestId  = req.params.id;
 
     const donor = await User.findById(donorId);
     const request = await BloodRequest.findById(requestId);

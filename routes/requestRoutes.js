@@ -4,10 +4,11 @@ import protect from '../middleWare/userMiddleWare.js';
 
 const app = express.Router()
 app.route('/').post(protect,bloodRequest).get(getAllBloodRequest)
-app.route('/approve').post(protect,approveRespond)
 app.route('/accept').post(protect,acceptBloodRequest).get(protect,getAllAcceptedRequests)
 app.route('/:id').get(getBloodRequest)
 app.route('/reject').post(protect,rejectBloodRequest)
+app.route('/approve/:id').post(protect,approveRespond)
+
 //admin
 app.route("/history/:id").get(getUserById)
 //user history
