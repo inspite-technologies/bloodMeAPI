@@ -57,7 +57,7 @@ const bloodRequest = async (req, res) => {
         },
       };
 
-      const response = await admin.messaging().sendMulticast(message);
+      const response = await admin.messaging().sendEachForMulticast(message);
       console.log(`Notifications sent: ${response.successCount}/${tokens.length}`);
 
       // Optional: log failed tokens
