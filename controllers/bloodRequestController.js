@@ -77,6 +77,39 @@ const bloodRequest = async (req, res) => {
   }
 };
 
+const approveRespond = async (req, res) => {
+  try {
+    const donorId = req.user._id;
+    const { requestId } = req.params;
+
+    const donor = await User.findById(donorId);
+    const request = await BloodRequest.findById(requestId);
+
+    // Send push notification
+    const payload = {
+      notification: {
+        title: "Donor Matched!",
+        body: `Donor ${donor.name} (${donor.bloodGroup}) accepted your request.`
+      },
+      data: {
+        donorName: donor.name,
+        donorPhone: donor.phone,
+        donorBloodGroup: donor.bloodGroup,
+        donorLocation: donor.location,
+        requestId: requestId
+      }
+    };
+
+    await admin.messaging().sendToDevice(request.fcmToken, payload);
+
+    return res.json({ msg: "Respond approved & notification sent!" });
+
+  } catch (err) {
+    return res.status(500).json(err);
+  }
+};
+
+
 // ACCEPT BLOOD REQUEST AND NOTIFY REQUESTER
 const acceptBloodRequest = async (req, res) => {
   try {
@@ -227,6 +260,7 @@ const getHistory = async (req, res) => {
 
 export {
   bloodRequest,
+  approveRespond,
   acceptBloodRequest,
   getAllAcceptedRequests,
   rejectBloodRequest,
