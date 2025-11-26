@@ -8,6 +8,7 @@ app.route('/accept').post(protect,acceptBloodRequest).get(protect,getAllAccepted
 app.route('/:id').get(getBloodRequest)
 app.route('/reject').post(protect,rejectBloodRequest)
 app.route('/approve/:id').post(protect,approveRespond)
+app.route('/accept/:id').post(protect,acceptBloodRequest)
 
 //admin
 app.route("/history/:id").get(getUserById)
