@@ -127,6 +127,23 @@ const acceptBloodRequest = async (req, res) => {
   }
 };
 
+const getAllAcceptedRequests = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const acceptedRequests = await AcceptRequest.find({donorId:userId})
+      .populate("requestId")
+      .populate("donorId", "name bloodGroup phoneNumber email");
+    res.status(200).json({
+      msg: "Accepted requests fetched successfully",
+      data: acceptedRequests,
+    });
+  }
+  catch (err) {
+    console.error("Error fetching accepted requests:", err);
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+};
+
 // REJECT BLOOD REQUEST
 const rejectBloodRequest = async (req, res) => {
   try {
@@ -211,6 +228,7 @@ const getHistory = async (req, res) => {
 export {
   bloodRequest,
   acceptBloodRequest,
+  getAllAcceptedRequests,
   rejectBloodRequest,
   getAllBloodRequest,
   getBloodRequest,
