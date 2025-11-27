@@ -1,7 +1,7 @@
 import express from 'express';
 import {bloodRequest,approveRespond,acceptBloodRequest,getAllAcceptedRequests,rejectBloodRequest,getBloodRequest,getAllBloodRequest,getUserById,getHistory} from '../controllers/bloodRequestController.js'
 import protect from '../middleWare/userMiddleWare.js';
-import { updateFcmToken } from "../middleware/updateFcmToken.js";
+import { updateFcmToken } from "../middleWare/updateFcmToken.js";
 
 const app = express.Router()
 app.route('/').post(protect,updateFcmToken,bloodRequest).get(protect,getAllBloodRequest);
