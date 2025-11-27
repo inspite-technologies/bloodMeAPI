@@ -42,41 +42,25 @@ const bloodRequest = async (req, res) => {
     const donors = await User.find({
       bloodType: bloodGroup,
       fcmToken: { $ne: null },
+      _id: { $ne: requesterId },
     });
-    console.log("Matched donors:", donors);
 
     const tokens = donors.map((d) => d.fcmToken).filter(Boolean);
-    console.log("FCM tokens:", tokens);
 
     if (tokens.length > 0) {
-      const message = {
+      const payload = {
         notification: {
           title: "Urgent Blood Request",
           body: `${bloodGroup} blood needed at ${hospitalName}`,
         },
-        tokens,
         data: {
           requestId: savedRequest._id.toString(),
         },
       };
 
-      const response = await admin.messaging().sendAll(
-        tokens.map((token) => ({
-          token,
-          notification: message.notification,
-          data: message.data,
-        }))
-      );
+      const response = await admin.messaging().sendToDevice(tokens, payload);
 
-      console.log(
-        `Notifications sent: ${response.successCount}/${tokens.length}`
-      );
-
-      // Optional: log failed tokens
-      response.responses.forEach((resp, idx) => {
-        if (!resp.success)
-          console.log("Failed token:", tokens[idx], resp.error);
-      });
+      console.log("Notification response:", response);
     }
 
     res.status(201).json({
