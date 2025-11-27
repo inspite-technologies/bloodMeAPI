@@ -233,7 +233,7 @@ const getAllBloodRequest = async (req, res) => {
     console.error("Error fetching blood requests:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
-};
+}
 
 // GET BLOOD REQUEST BY ID
 const getBloodRequest = async (req, res) => {

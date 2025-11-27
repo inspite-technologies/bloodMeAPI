@@ -110,42 +110,39 @@ const verifyOtp = async (req, res) => {
 };
 
 const userLogin = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, fcmToken } = req.body;
 
   try {
     const existUser = await User.findOne({ email });
 
     if (!existUser) {
-      return res.status(400).json({
-        msg: "User not found",
-      });
+      return res.status(400).json({ msg: "User not found" });
     }
 
-    // Check if user is verified
     if (existUser.isVerified === false) {
-      return res.status(400).json({
-        msg: "Please verify your email before login",
-      });
+      return res.status(400).json({ msg: "Please verify your email before login" });
     }
 
-    // Check password
     const isMatch = await existUser.matchPassword(password);
     if (!isMatch) {
-      return res.status(400).json({
-        msg: "Incorrect password",
-      });
+      return res.status(400).json({ msg: "Incorrect password" });
     }
 
-    // Generate token
+    // 🔥 Save/Update FCM Token
+    if (fcmToken) {
+      existUser.fcmToken = fcmToken;
+      await existUser.save();
+    }
+
     return res.status(200).json({
       msg: "Login successful",
       token: generateToken(existUser._id),
+      userId: existUser._id,
     });
+
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({
-      msg: "Internal server error",
-    });
+    res.status(500).json({ msg: "Internal server error" });
   }
 };
 
