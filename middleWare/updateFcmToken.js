@@ -1,4 +1,4 @@
-import User from "../models/userModel.js";
+import User from "../models/userSchema.js";
 
 export const updateFcmToken = async (req, res, next) => {
   try {
