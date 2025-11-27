@@ -1,5 +1,5 @@
 import express from 'express';
-import {bloodRequest,approveRespond,acceptBloodRequest,getAllRequestByStatus,rejectBloodRequest,getBloodRequest,getAllBloodRequest,getUserById,getHistory} from '../controllers/bloodRequestController.js'
+import {bloodRequest,approveRespond,acceptBloodRequest,getAllRequestByStatus,rejectBloodRequest,getBloodRequest,getAllBloodRequest,getUserById,getHistory,getDonorsList} from '../controllers/bloodRequestController.js'
 import protect from '../middleWare/userMiddleWare.js';
 import { updateFcmToken } from "../middleWare/updateFcmToken.js";
 
@@ -12,6 +12,7 @@ app.route('/accept/:id').post(protect,updateFcmToken,acceptBloodRequest);
 
 // MOVE THIS TO LAST
 app.route('/:id').get(getBloodRequest);
+app.route('/:id/donors').get(protect,getDonorsList);
 
 // Admin
 app.route("/history/:id").get(getUserById);

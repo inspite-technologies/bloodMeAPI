@@ -395,6 +395,25 @@ const getHistory = async (req, res) => {
   }
 };
 
+const getDonorsList = async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    const donors = await AcceptRequest.find({ requestId })
+      .populate("donorId", "name bloodType phoneNumber email")
+      .select("donorId remarks distanceInKm status createdAt");
+    res.status(200).json({
+      msg: "Donors list fetched successfully",
+      count: donors.length,
+      data: donors,
+    });
+  }
+  catch (err) {
+    console.error("Error fetching donors list:", err);
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+};
+
+
 export {
   bloodRequest,
   approveRespond,
@@ -405,4 +424,5 @@ export {
   getBloodRequest,
   getUserById,
   getHistory,
+  getDonorsList
 };
