@@ -11,7 +11,16 @@ const otpExpiryMap = new Map();
 
 const userSignup = async (req, res) => {
   try {
-    const { name, email, dateOfBirth, password, phoneNumber, bloodType,height,weight } = req.body;
+    const {
+      name,
+      email,
+      dateOfBirth,
+      password,
+      phoneNumber,
+      bloodType,
+      height,
+      weight,
+    } = req.body;
 
     const isExist = await User.findOne({ email });
     if (isExist) {
@@ -38,7 +47,7 @@ const userSignup = async (req, res) => {
       userType,
       organizationId,
       height,
-      weight
+      weight,
     });
 
     await sendOtpMail(email, otp);
@@ -120,7 +129,9 @@ const userLogin = async (req, res) => {
     }
 
     if (existUser.isVerified === false) {
-      return res.status(400).json({ msg: "Please verify your email before login" });
+      return res
+        .status(400)
+        .json({ msg: "Please verify your email before login" });
     }
 
     const isMatch = await existUser.matchPassword(password);
@@ -130,8 +141,10 @@ const userLogin = async (req, res) => {
 
     // 🔥 Save/Update FCM Token
     if (fcmToken) {
+      console.log("Received fcmToken:", fcmToken);
       existUser.fcmToken = fcmToken;
       await existUser.save();
+      console.log("Updated user:", existUser);
     }
 
     return res.status(200).json({
@@ -139,7 +152,6 @@ const userLogin = async (req, res) => {
       token: generateToken(existUser._id),
       userId: existUser._id,
     });
-
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ msg: "Internal server error" });
