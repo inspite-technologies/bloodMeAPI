@@ -125,7 +125,7 @@ const approveRespond = async (req, res) => {
     const toRad = (value) => (value * Math.PI) / 180;
 
     function haversineDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth radius in KM
+      const R = 6371;
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lon2 - lon1);
 
@@ -136,20 +136,35 @@ const approveRespond = async (req, res) => {
           Math.sin(dLon / 2) ** 2;
 
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in KM
+      return R * c;
     }
 
-    const distanceInKm = haversineDistance(donorLat, donorLng, reqLat, reqLng)
-      .toFixed(2);
+    const distanceInKm = parseFloat(
+      haversineDistance(donorLat, donorLng, reqLat, reqLng).toFixed(2)
+    );
 
     // ----------------------------
-    // 2️⃣ Update status
+    // 2️⃣ Save in AcceptRequest table
+    // ----------------------------
+    const saveAccept = await AcceptRequest.create({
+      requestId,
+      donorId,
+      organizationId: donor.organizationId || null,
+      remarks: "Donor approved",
+      distanceInKm,
+      status: "approved",
+    });
+
+    // ----------------------------
+    // 3️⃣ Update request document (save distance + status)
     // ----------------------------
     request.status = "responded";
+    request.distanceFromDonor = distanceInKm;
+
     await request.save();
 
     // ----------------------------
-    // 3️⃣ Notification receiver
+    // 4️⃣ Notification receiver
     // ----------------------------
     const requester = await User.findById(request.requesterId);
 
@@ -158,7 +173,7 @@ const approveRespond = async (req, res) => {
     }
 
     // ----------------------------
-    // 4️⃣ Send Notification with distance
+    // 5️⃣ Send Notification with distance
     // ----------------------------
     const message = {
       token: requester.fcmToken,
@@ -178,7 +193,8 @@ const approveRespond = async (req, res) => {
     await admin.messaging().send(message);
 
     res.json({
-      msg: "Respond approved, status updated & notification sent!",
+      msg: "Response saved, status updated & notification sent!",
+      savedResponse: saveAccept,
       distance: `${distanceInKm} km`,
       updatedStatus: request.status,
     });
@@ -188,9 +204,6 @@ const approveRespond = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-
-
 
 // REQUESTER ACCEPTS DONOR
 const acceptBloodRequest = async (req, res) => {
