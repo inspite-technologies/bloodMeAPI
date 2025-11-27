@@ -110,28 +110,68 @@ const approveRespond = async (req, res) => {
     if (!request)
       return res.status(404).json({ msg: "Blood request not found" });
 
-    // Update the request status
+    // ----------------------------
+    // 1️⃣ Calculate distance
+    // ----------------------------
+    if (!donor.location?.coordinates || !request.location?.coordinates) {
+      return res.status(400).json({
+        msg: "Location missing for donor or request",
+      });
+    }
+
+    const [donorLng, donorLat] = donor.location.coordinates;
+    const [reqLng, reqLat] = request.location.coordinates;
+
+    const toRad = (value) => (value * Math.PI) / 180;
+
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Earth radius in KM
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) ** 2;
+
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Distance in KM
+    }
+
+    const distanceInKm = haversineDistance(donorLat, donorLng, reqLat, reqLng)
+      .toFixed(2);
+
+    // ----------------------------
+    // 2️⃣ Update status
+    // ----------------------------
     request.status = "responded";
     await request.save();
 
-    // Get only the requester (single user)
+    // ----------------------------
+    // 3️⃣ Notification receiver
+    // ----------------------------
     const requester = await User.findById(request.requesterId);
 
     if (!requester || !requester.fcmToken) {
       return res.status(400).json({ msg: "Requester has no FCM token" });
     }
 
+    // ----------------------------
+    // 4️⃣ Send Notification with distance
+    // ----------------------------
     const message = {
-      token: requester.fcmToken,          // 🔥 Only requester
+      token: requester.fcmToken,
       notification: {
         title: "Donor Matched!",
-        body: `Donor ${donor.name} (${donor.bloodType}) approve your request.`,
+        body: `Donor ${donor.name} (${donor.bloodType}) approved your request. Distance: ${distanceInKm} km`,
       },
       data: {
         donorName: donor.name,
         donorPhone: donor.phoneNumber,
         donorBloodGroup: donor.bloodType,
         requestId,
+        distance: distanceInKm.toString(),
       },
     };
 
@@ -139,6 +179,7 @@ const approveRespond = async (req, res) => {
 
     res.json({
       msg: "Respond approved, status updated & notification sent!",
+      distance: `${distanceInKm} km`,
       updatedStatus: request.status,
     });
 
@@ -147,6 +188,7 @@ const approveRespond = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 
@@ -251,58 +293,23 @@ const rejectBloodRequest = async (req, res) => {
   }
 };
 
-
-
-// Haversine formula to calculate distance in km
-const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Earth radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) *
-      Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
+// GET ALL ACTIVE BLOOD REQUESTS
 const getAllBloodRequest = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Get logged-in user's location
-    const currentUser = await User.findById(userId);
-    const [userLng, userLat] = currentUser.location.coordinates;
-
-    // Fetch blood requests
     const requests = await BloodRequest.find({
       isActive: true,
       requesterId: { $ne: userId },
-      status: "pending", // Only show pending requests
-    }).populate("requesterId", "name location");
-
-    // Map requests to include distance
-    const requestsWithDistance = requests.map((reqItem) => {
-      const [reqLng, reqLat] = reqItem.location.coordinates || [0, 0];
-      const distance = getDistanceFromLatLonInKm(userLat, userLng, reqLat, reqLng);
-      return {
-        ...reqItem.toObject(),
-        distance: distance.toFixed(2), // in km
-      };
+      status: "pending",   // 🔥 Only show pending requests
     });
 
-    res.status(200).json({
-      msg: "Pending requests fetched with distance",
-      data: requestsWithDistance,
-    });
+    res.status(200).json({ msg: "Pending requests fetched", data: requests });
   } catch (err) {
     console.error("Error fetching blood requests:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
-
 
 
 // GET BLOOD REQUEST BY ID
