@@ -6,6 +6,8 @@ import admin from "../config/firebase.js"; // your firebase admin init file
 // CREATE BLOOD REQUEST AND NOTIFY DONORS
 const bloodRequest = async (req, res) => {
   try {
+    console.log("Creating blood request with body:", req.body);
+
     const {
       requesterId,
       bloodGroup,
@@ -13,14 +15,21 @@ const bloodRequest = async (req, res) => {
       hospitalName,
       phoneNumber,
       notes,
-      latitude,
-      longitude,
+      location,
       priority,
     } = req.body;
 
-    console.log("Creating blood request with body:", req.body);
+    // Extract latitude & longitude from Flutter GeoJSON
+    const longitude = location?.coordinates?.[0];
+    const latitude = location?.coordinates?.[1];
 
-    // Save new blood request
+    if (!longitude || !latitude) {
+      return res.status(400).json({
+        msg: "Invalid location format. Expecting { location: { type: 'Point', coordinates: [lng, lat] } }",
+      });
+    }
+
+    // Create new request
     const newRequest = new BloodRequest({
       requesterId,
       bloodGroup,
@@ -30,7 +39,7 @@ const bloodRequest = async (req, res) => {
       notes,
       location: {
         type: "Point",
-        coordinates: [longitude, latitude],
+        coordinates: [longitude, latitude], // correct GeoJSON
       },
       priority: priority || "moderate",
       status: "pending",
@@ -40,7 +49,7 @@ const bloodRequest = async (req, res) => {
     const savedRequest = await newRequest.save();
     console.log("Saved request:", savedRequest);
 
-    // Fetch donors with valid tokens
+    // Get eligible donors (same blood group, valid FCM token, not requester)
     const donors = await User.find({
       bloodType: bloodGroup,
       fcmToken: { $ne: null },
@@ -49,6 +58,7 @@ const bloodRequest = async (req, res) => {
 
     console.log("Found donors:", donors.length);
 
+    // Send notification to each donor
     for (const donor of donors) {
       if (!donor.fcmToken) continue;
 
@@ -69,7 +79,6 @@ const bloodRequest = async (req, res) => {
       } catch (err) {
         console.error("Failed to send to:", donor.fcmToken, "Error:", err);
 
-        // Remove invalid token
         if (err.code === "messaging/registration-token-not-registered") {
           await User.findByIdAndUpdate(donor._id, { $unset: { fcmToken: "" } });
           console.log("Removed invalid token for user:", donor._id);
