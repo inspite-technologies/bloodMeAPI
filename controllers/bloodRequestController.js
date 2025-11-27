@@ -20,6 +20,7 @@ const bloodRequest = async (req, res) => {
 
     console.log("Creating blood request with body:", req.body);
 
+    // Save new blood request
     const newRequest = new BloodRequest({
       requesterId,
       bloodGroup,
@@ -32,24 +33,27 @@ const bloodRequest = async (req, res) => {
         coordinates: [longitude, latitude],
       },
       priority: priority || "moderate",
+      status: "pending",
+      isActive: true,
     });
 
     const savedRequest = await newRequest.save();
     console.log("Saved request:", savedRequest);
 
+    // Fetch donors with valid tokens
     const donors = await User.find({
       bloodType: bloodGroup,
       fcmToken: { $ne: null },
       _id: { $ne: requesterId },
     });
 
-    const tokens = donors.map((d) => d.fcmToken).filter(Boolean);
-    console.log("Notification tokens:", tokens);
+    console.log("Found donors:", donors.length);
 
-    // --- FIXED NOTIFICATION SECTION ---
-    for (const token of tokens) {
+    for (const donor of donors) {
+      if (!donor.fcmToken) continue;
+
       const message = {
-        token,
+        token: donor.fcmToken,
         notification: {
           title: "Urgent Blood Request",
           body: `${bloodGroup} blood needed at ${hospitalName}`,
@@ -61,13 +65,17 @@ const bloodRequest = async (req, res) => {
 
       try {
         const response = await admin.messaging().send(message);
-        console.log("Notification sent to:", token, "Response:", response);
+        console.log("Notification sent to:", donor.fcmToken, "Response:", response);
       } catch (err) {
-        console.error("Failed to send to:", token, "Error:", err);
+        console.error("Failed to send to:", donor.fcmToken, "Error:", err);
+
+        // Remove invalid token
+        if (err.code === "messaging/registration-token-not-registered") {
+          await User.findByIdAndUpdate(donor._id, { $unset: { fcmToken: "" } });
+          console.log("Removed invalid token for user:", donor._id);
+        }
       }
     }
-
-    // ---------------------------------------------------
 
     res.status(201).json({
       msg: "Blood request created successfully",
