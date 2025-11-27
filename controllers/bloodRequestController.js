@@ -21,7 +21,7 @@ const bloodRequest = async (req, res) => {
 
     const {
       requesterId,
-      bloodGroup,
+      bloodType,
       units,
       hospitalName,
       phoneNumber,
@@ -42,7 +42,7 @@ const bloodRequest = async (req, res) => {
     // Save new blood request
     const newRequest = new BloodRequest({
       requesterId,
-      bloodGroup,
+      bloodType,
       units,
       hospitalName,
       phoneNumber,
