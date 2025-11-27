@@ -21,7 +21,7 @@ const bloodRequest = async (req, res) => {
 
     const {
       requesterId,
-      bloodType,
+      bloodGroup,
       units,
       hospitalName,
       phoneNumber,
@@ -42,7 +42,7 @@ const bloodRequest = async (req, res) => {
     // Save new blood request
     const newRequest = new BloodRequest({
       requesterId,
-      bloodType,
+      bloodGroup,
       units,
       hospitalName,
       phoneNumber,
@@ -59,7 +59,7 @@ const bloodRequest = async (req, res) => {
     // Find nearby donors (within 5km)
     const maxDistanceMeters = 5000; // adjust as needed
     const donors = await User.find({
-      bloodType,
+      bloodGroup: bloodGroup,
       fcmToken: { $ne: null },
       _id: { $ne: requesterId },
       location: {
@@ -145,12 +145,12 @@ const approveRespond = async (req, res) => {
       token: requester.fcmToken,          // 🔥 Only requester
       notification: {
         title: "Donor Matched!",
-        body: `Donor ${donor.name} (${donor.bloodType}) approved your request.`,
+        body: `Donor ${donor.name} (${donor.bloodGroup}) approved your request.`,
       },
       data: {
         donorName: donor.name,
         donorPhone: donor.phoneNumber,
-        donorBloodGroup: donor.bloodType,
+        donorBloodGroup: donor.bloodGroup,
         requestId,
       },
     };
