@@ -262,18 +262,48 @@ const acceptBloodRequest = async (req, res) => {
 const getAllAcceptedRequests = async (req, res) => {
   try {
     const userId = req.user._id;
-    const acceptedRequests = await AcceptRequest.find({ donorId: userId })
-      .populate("requestId")
-      .populate("donorId", "name bloodGroup phoneNumber email");
+    const { status } = req.query;  // 👈 get status from query
+
+    // ---------------------------
+    //  Validation
+    // ---------------------------
+    const allowedStatus = ["approved", "accepted", "completed"];
+
+    if (status && !allowedStatus.includes(status)) {
+      return res.status(400).json({
+        msg: "Invalid status value. Allowed: approved, accepted, completed",
+      });
+    }
+
+    // ---------------------------
+    //  Build filter query
+    // ---------------------------
+    const filter = { donorId: userId };
+
+    if (status) {
+      filter.status = status;  // add status if provided
+    }
+
+    // ---------------------------
+    //  Fetch data
+    // ---------------------------
+    const acceptedRequests = await AcceptRequest.find(filter)
+      .populate("requestId", "bloodGroup units hospitalName phoneNumber notes")
+      .populate("donorId", "name bloodType phoneNumber email");
+
     res.status(200).json({
       msg: "Accepted requests fetched successfully",
+      statusFilter: status || "all",
+      count: acceptedRequests.length,
       data: acceptedRequests,
     });
+
   } catch (err) {
     console.error("Error fetching accepted requests:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
+
 
 // REJECT BLOOD REQUEST
 const rejectBloodRequest = async (req, res) => {
