@@ -87,22 +87,25 @@ const approveRespond = async (req, res) => {
     const donorId = req.user._id;
     const requestId = req.params.id;
 
-    console.log("Donor responding:", donorId, "for request:", requestId);
-
     const donor = await User.findById(donorId);
     const request = await BloodRequest.findById(requestId);
+
     if (!request)
       return res.status(404).json({ msg: "Blood request not found" });
 
+    // Update the request status
+    request.status = "responded";
+    await request.save();
+
+    // Get only the requester (single user)
     const requester = await User.findById(request.requesterId);
-    if (!requester.fcmToken) {
-      console.log("Requester has no FCM token");
+
+    if (!requester || !requester.fcmToken) {
       return res.status(400).json({ msg: "Requester has no FCM token" });
     }
 
-    console.log("Sending notification to requester:", requester.fcmToken);
     const message = {
-      token: requester.fcmToken,
+      token: requester.fcmToken,          // 🔥 Only requester
       notification: {
         title: "Donor Matched!",
         body: `Donor ${donor.name} (${donor.bloodType}) accepted your request.`,
@@ -116,14 +119,19 @@ const approveRespond = async (req, res) => {
     };
 
     await admin.messaging().send(message);
-    console.log("Notification sent to requester");
 
-    res.json({ msg: "Respond approved & notification sent!" });
+    res.json({
+      msg: "Respond approved, status updated & notification sent!",
+      updatedStatus: request.status,
+    });
+
   } catch (err) {
     console.error("Error in approveRespond:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
+
 
 // REQUESTER ACCEPTS DONOR
 const acceptBloodRequest = async (req, res) => {
@@ -230,16 +238,20 @@ const rejectBloodRequest = async (req, res) => {
 const getAllBloodRequest = async (req, res) => {
   try {
     const userId = req.user._id;
+
     const requests = await BloodRequest.find({
       isActive: true,
       requesterId: { $ne: userId },
+      status: "pending",   // 🔥 Only show pending requests
     });
-    res.status(200).json({ msg: "Active requests fetched", data: requests });
+
+    res.status(200).json({ msg: "Pending requests fetched", data: requests });
   } catch (err) {
     console.error("Error fetching blood requests:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
+
 
 // GET BLOOD REQUEST BY ID
 const getBloodRequest = async (req, res) => {
