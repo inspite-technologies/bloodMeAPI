@@ -4,6 +4,17 @@ import AcceptRequest from "../models/acceptRequestSchema.js";
 import admin from "../config/firebase.js"; // your firebase admin init file
 
 // CREATE BLOOD REQUEST AND NOTIFY DONORS
+const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+            Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 const bloodRequest = async (req, res) => {
   try {
     console.log("Creating blood request with body:", req.body);
@@ -19,17 +30,16 @@ const bloodRequest = async (req, res) => {
       priority,
     } = req.body;
 
-    // Extract latitude & longitude from Flutter GeoJSON
     const longitude = location?.coordinates?.[0];
     const latitude = location?.coordinates?.[1];
 
-    if (!longitude || !latitude) {
+    if (longitude === undefined || latitude === undefined) {
       return res.status(400).json({
         msg: "Invalid location format. Expecting { location: { type: 'Point', coordinates: [lng, lat] } }",
       });
     }
 
-    // Create new request
+    // Save new blood request
     const newRequest = new BloodRequest({
       requesterId,
       bloodGroup,
@@ -37,10 +47,7 @@ const bloodRequest = async (req, res) => {
       hospitalName,
       phoneNumber,
       notes,
-      location: {
-        type: "Point",
-        coordinates: [longitude, latitude], // correct GeoJSON
-      },
+      location: { type: "Point", coordinates: [longitude, latitude] },
       priority: priority || "moderate",
       status: "pending",
       isActive: true,
@@ -49,36 +56,49 @@ const bloodRequest = async (req, res) => {
     const savedRequest = await newRequest.save();
     console.log("Saved request:", savedRequest);
 
-    // Get eligible donors (same blood group, valid FCM token, not requester)
+    // Find nearby donors (within 5km)
+    const maxDistanceMeters = 5000; // adjust as needed
     const donors = await User.find({
-      bloodType: bloodGroup,
+      bloodType,
       fcmToken: { $ne: null },
       _id: { $ne: requesterId },
+      location: {
+        $near: {
+          $geometry: { type: "Point", coordinates: [longitude, latitude] },
+          $maxDistance: maxDistanceMeters,
+        },
+      },
     });
 
-    console.log("Found donors:", donors.length);
+    console.log(`Found ${donors.length} nearby donors`);
 
-    // Send notification to each donor
+    // Send notification with distance
     for (const donor of donors) {
       if (!donor.fcmToken) continue;
+
+      const donorLat = donor.location.coordinates[1];
+      const donorLng = donor.location.coordinates[0];
+      const distanceKm = getDistanceFromLatLonInKm(latitude, longitude, donorLat, donorLng);
 
       const message = {
         token: donor.fcmToken,
         notification: {
           title: "Urgent Blood Request",
-          body: `${bloodGroup} blood needed at ${hospitalName}`,
+          body: `${bloodGroup} blood needed at ${hospitalName} (${distanceKm.toFixed(2)} km away)`,
         },
         data: {
           requestId: savedRequest._id.toString(),
+          distance: distanceKm.toFixed(2),
         },
       };
 
       try {
         const response = await admin.messaging().send(message);
-        console.log("Notification sent to:", donor.fcmToken, "Response:", response);
+        console.log("Notification sent to:", donor._id, "Response:", response);
       } catch (err) {
-        console.error("Failed to send to:", donor.fcmToken, "Error:", err);
+        console.error("Failed to send to:", donor._id, "Error:", err);
 
+        // Remove invalid token
         if (err.code === "messaging/registration-token-not-registered") {
           await User.findByIdAndUpdate(donor._id, { $unset: { fcmToken: "" } });
           console.log("Removed invalid token for user:", donor._id);
@@ -125,7 +145,7 @@ const approveRespond = async (req, res) => {
       token: requester.fcmToken,          // 🔥 Only requester
       notification: {
         title: "Donor Matched!",
-        body: `Donor ${donor.name} (${donor.bloodType}) accepted your request.`,
+        body: `Donor ${donor.name} (${donor.bloodType}) approved your request.`,
       },
       data: {
         donorName: donor.name,
@@ -258,8 +278,7 @@ const getAllBloodRequest = async (req, res) => {
 
     const requests = await BloodRequest.find({
       isActive: true,
-      requesterId: { $ne: userId },
-      status: "pending",   // 🔥 Only show pending requests
+      requesterId: { $ne: userId }
     });
 
     res.status(200).json({ msg: "Pending requests fetched", data: requests });
