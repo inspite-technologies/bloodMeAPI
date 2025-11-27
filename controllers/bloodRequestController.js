@@ -223,7 +223,11 @@ const rejectBloodRequest = async (req, res) => {
 // GET ALL ACTIVE BLOOD REQUESTS
 const getAllBloodRequest = async (req, res) => {
   try {
-    const requests = await BloodRequest.find({ isActive: true });
+    const userId = req.user._id;
+    const requests = await BloodRequest.find({
+      isActive: true,
+      requesterId: { $ne: userId } 
+    });
     res.status(200).json({ msg: "Active requests fetched", data: requests });
   } catch (err) {
     console.error("Error fetching blood requests:", err);
