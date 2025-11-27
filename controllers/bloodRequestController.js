@@ -99,35 +99,47 @@ const bloodRequest = async (req, res) => {
 
 
 // DONOR RESPONDS TO BLOOD REQUEST
+// -------------------------
+// Donor respond
+// -------------------------
 const approveRespond = async (req, res) => {
   try {
     const donorId = req.user._id;
     const requestId = req.params.id;
 
+    // Donor live location from frontend
+    const { latitude, longitude } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ msg: "Donor live location missing" });
+    }
+
+    const donorLat = parseFloat(latitude);
+    const donorLng = parseFloat(longitude);
+
+    // Donor & Request data
     const donor = await User.findById(donorId);
     const request = await BloodRequest.findById(requestId);
 
     if (!request)
       return res.status(404).json({ msg: "Blood request not found" });
 
-    // ----------------------------
-    // 1️⃣ Calculate distance
-    // ----------------------------
-    if (!donor.location?.coordinates || !request.location?.coordinates) {
+    // Request location
+    if (!request.location?.coordinates) {
       return res.status(400).json({
-        msg: "Location missing for donor or request",
+        msg: "Request location missing",
       });
     }
 
-    const [donorLng, donorLat] = donor.location.coordinates;
     const [reqLng, reqLat] = request.location.coordinates;
 
-    const toRad = (value) => (value * Math.PI) / 180;
+    // Distance calculation
+    const toRad = (v) => (v * Math.PI) / 180;
 
     function haversineDistance(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
+      const dLon = toRad(lat2 - lon1);
 
       const a =
         Math.sin(dLat / 2) ** 2 +
@@ -143,9 +155,7 @@ const approveRespond = async (req, res) => {
       haversineDistance(donorLat, donorLng, reqLat, reqLng).toFixed(2)
     );
 
-    // ----------------------------
-    // 2️⃣ Save in AcceptRequest table
-    // ----------------------------
+    // Save Accept Request
     const saveAccept = await AcceptRequest.create({
       requestId,
       donorId,
@@ -155,31 +165,22 @@ const approveRespond = async (req, res) => {
       status: "approved",
     });
 
-    // ----------------------------
-    // 3️⃣ Update request document (save distance + status)
-    // ----------------------------
+    // Update request
     request.status = "responded";
     request.distanceFromDonor = distanceInKm;
-
     await request.save();
 
-    // ----------------------------
-    // 4️⃣ Notification receiver
-    // ----------------------------
+    // Notify requester
     const requester = await User.findById(request.requesterId);
-
     if (!requester || !requester.fcmToken) {
       return res.status(400).json({ msg: "Requester has no FCM token" });
     }
 
-    // ----------------------------
-    // 5️⃣ Send Notification with distance
-    // ----------------------------
     const message = {
       token: requester.fcmToken,
       notification: {
         title: "Donor Matched!",
-        body: `Donor ${donor.name} (${donor.bloodType}) approved your request. Distance: ${distanceInKm} km`,
+        body: `Donor ${donor.name} approved your request. Distance: ${distanceInKm} km`,
       },
       data: {
         donorName: donor.name,
@@ -198,7 +199,6 @@ const approveRespond = async (req, res) => {
       distance: `${distanceInKm} km`,
       updatedStatus: request.status,
     });
-
   } catch (err) {
     console.error("Error in approveRespond:", err);
     res.status(500).json({ error: err.message });
@@ -259,7 +259,7 @@ const acceptBloodRequest = async (req, res) => {
   }
 };
 
-const getAllAcceptedRequests = async (req, res) => {
+const getAllRequestByStatus = async (req, res) => {
   try {
     const userId = req.user._id;
     const { status } = req.query;  // 👈 get status from query
@@ -399,7 +399,7 @@ export {
   bloodRequest,
   approveRespond,
   acceptBloodRequest,
-  getAllAcceptedRequests,
+  getAllRequestByStatus,
   rejectBloodRequest,
   getAllBloodRequest,
   getBloodRequest,
