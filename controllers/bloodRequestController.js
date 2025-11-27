@@ -20,7 +20,6 @@ const bloodRequest = async (req, res) => {
 
     console.log("Creating blood request with body:", req.body);
 
-    // Create new blood request
     const newRequest = new BloodRequest({
       requesterId,
       bloodGroup,
@@ -38,7 +37,6 @@ const bloodRequest = async (req, res) => {
     const savedRequest = await newRequest.save();
     console.log("Saved request:", savedRequest);
 
-    // Find donors with same blood group & valid FCM token
     const donors = await User.find({
       bloodType: bloodGroup,
       fcmToken: { $ne: null },
@@ -46,9 +44,12 @@ const bloodRequest = async (req, res) => {
     });
 
     const tokens = donors.map((d) => d.fcmToken).filter(Boolean);
+    console.log("Notification tokens:", tokens);
 
-    if (tokens.length > 0) {
-      const payload = {
+    // --- FIXED NOTIFICATION SECTION ---
+    for (const token of tokens) {
+      const message = {
+        token,
         notification: {
           title: "Urgent Blood Request",
           body: `${bloodGroup} blood needed at ${hospitalName}`,
@@ -58,20 +59,27 @@ const bloodRequest = async (req, res) => {
         },
       };
 
-      const response = await admin.messaging().sendToDevice(tokens, payload);
-
-      console.log("Notification response:", response);
+      try {
+        const response = await admin.messaging().send(message);
+        console.log("Notification sent to:", token, "Response:", response);
+      } catch (err) {
+        console.error("Failed to send to:", token, "Error:", err);
+      }
     }
+
+    // ---------------------------------------------------
 
     res.status(201).json({
       msg: "Blood request created successfully",
       data: savedRequest,
     });
+
   } catch (error) {
     console.error("Error creating blood request:", error);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
+
 
 // DONOR RESPONDS TO BLOOD REQUEST
 const approveRespond = async (req, res) => {
