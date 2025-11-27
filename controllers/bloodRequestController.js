@@ -15,7 +15,7 @@ const bloodRequest = async (req, res) => {
       notes,
       latitude,
       longitude,
-      priority
+      priority,
     } = req.body;
 
     console.log("Creating blood request with body:", req.body);
@@ -39,10 +39,13 @@ const bloodRequest = async (req, res) => {
     console.log("Saved request:", savedRequest);
 
     // Find donors with same blood group & valid FCM token
-    const donors = await User.find({ bloodType: bloodGroup, fcmToken: { $ne: null } });
+    const donors = await User.find({
+      bloodType: bloodGroup,
+      fcmToken: { $ne: null },
+    });
     console.log("Matched donors:", donors);
 
-    const tokens = donors.map(d => d.fcmToken).filter(Boolean);
+    const tokens = donors.map((d) => d.fcmToken).filter(Boolean);
     console.log("FCM tokens:", tokens);
 
     if (tokens.length > 0) {
@@ -57,12 +60,22 @@ const bloodRequest = async (req, res) => {
         },
       };
 
-      const response = await admin.messaging().sendEachForMulticast(message);
-      console.log(`Notifications sent: ${response.successCount}/${tokens.length}`);
+      const response = await admin.messaging().sendAll(
+        tokens.map((token) => ({
+          token,
+          notification: message.notification,
+          data: message.data,
+        }))
+      );
+
+      console.log(
+        `Notifications sent: ${response.successCount}/${tokens.length}`
+      );
 
       // Optional: log failed tokens
       response.responses.forEach((resp, idx) => {
-        if (!resp.success) console.log("Failed token:", tokens[idx], resp.error);
+        if (!resp.success)
+          console.log("Failed token:", tokens[idx], resp.error);
       });
     }
 
@@ -70,7 +83,6 @@ const bloodRequest = async (req, res) => {
       msg: "Blood request created successfully",
       data: savedRequest,
     });
-
   } catch (error) {
     console.error("Error creating blood request:", error);
     res.status(500).json({ msg: "Server error", error: error.message });
@@ -87,7 +99,8 @@ const approveRespond = async (req, res) => {
 
     const donor = await User.findById(donorId);
     const request = await BloodRequest.findById(requestId);
-    if (!request) return res.status(404).json({ msg: "Blood request not found" });
+    if (!request)
+      return res.status(404).json({ msg: "Blood request not found" });
 
     const requester = await User.findById(request.requesterId);
     if (!requester.fcmToken) {
@@ -114,7 +127,6 @@ const approveRespond = async (req, res) => {
     console.log("Notification sent to requester");
 
     res.json({ msg: "Respond approved & notification sent!" });
-
   } catch (err) {
     console.error("Error in approveRespond:", err);
     res.status(500).json({ error: err.message });
@@ -134,7 +146,9 @@ const acceptBloodRequest = async (req, res) => {
     if (!request) return res.status(404).json({ msg: "Request not found" });
 
     if (request.requesterId.toString() !== requesterId.toString())
-      return res.status(403).json({ msg: "You cannot accept donor for this request" });
+      return res
+        .status(403)
+        .json({ msg: "You cannot accept donor for this request" });
 
     const acceptRecord = await AcceptRequest.create({
       requestId,
@@ -159,32 +173,31 @@ const acceptBloodRequest = async (req, res) => {
           title: "Your Response Was Accepted",
           body: "The requester has selected you as donor.",
         },
-        data: { requestId: requestId.toString() }
+        data: { requestId: requestId.toString() },
       });
       console.log("Notification sent to donor");
     }
 
-    res.status(201).json({ msg: "Donor accepted successfully", data: acceptRecord });
-
+    res
+      .status(201)
+      .json({ msg: "Donor accepted successfully", data: acceptRecord });
   } catch (err) {
     console.error("Error in acceptBloodRequest:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
 
-
 const getAllAcceptedRequests = async (req, res) => {
   try {
     const userId = req.user._id;
-    const acceptedRequests = await AcceptRequest.find({donorId:userId})
+    const acceptedRequests = await AcceptRequest.find({ donorId: userId })
       .populate("requestId")
       .populate("donorId", "name bloodGroup phoneNumber email");
     res.status(200).json({
       msg: "Accepted requests fetched successfully",
       data: acceptedRequests,
     });
-  }
-  catch (err) {
+  } catch (err) {
     console.error("Error fetching accepted requests:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
@@ -194,10 +207,12 @@ const getAllAcceptedRequests = async (req, res) => {
 const rejectBloodRequest = async (req, res) => {
   try {
     const { requestId } = req.body;
-    if (!requestId) return res.status(400).json({ msg: "Request ID is required" });
+    if (!requestId)
+      return res.status(400).json({ msg: "Request ID is required" });
 
     const request = await BloodRequest.findById(requestId);
-    if (!request) return res.status(404).json({ msg: "Blood request not found" });
+    if (!request)
+      return res.status(404).json({ msg: "Blood request not found" });
 
     if (request.status === "accepted") {
       return res.status(400).json({ msg: "Cannot reject an accepted request" });
@@ -213,7 +228,6 @@ const rejectBloodRequest = async (req, res) => {
       msg: "Blood request rejected successfully",
       data: updatedRequest,
     });
-
   } catch (err) {
     console.error("Error rejecting blood request:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
@@ -226,14 +240,14 @@ const getAllBloodRequest = async (req, res) => {
     const userId = req.user._id;
     const requests = await BloodRequest.find({
       isActive: true,
-      requesterId: { $ne: userId } 
+      requesterId: { $ne: userId },
     });
     res.status(200).json({ msg: "Active requests fetched", data: requests });
   } catch (err) {
     console.error("Error fetching blood requests:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
-}
+};
 
 // GET BLOOD REQUEST BY ID
 const getBloodRequest = async (req, res) => {
