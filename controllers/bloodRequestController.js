@@ -19,7 +19,6 @@ const bloodRequest = async (req, res) => {
       priority,
     } = req.body;
 
-    // Extract latitude & longitude from Flutter GeoJSON
     const longitude = location?.coordinates?.[0];
     const latitude = location?.coordinates?.[1];
 
@@ -29,7 +28,6 @@ const bloodRequest = async (req, res) => {
       });
     }
 
-    // Create new request
     const newRequest = new BloodRequest({
       requesterId,
       bloodGroup,
@@ -39,7 +37,7 @@ const bloodRequest = async (req, res) => {
       notes,
       location: {
         type: "Point",
-        coordinates: [longitude, latitude], // correct GeoJSON
+        coordinates: [longitude, latitude],
       },
       priority: priority || "moderate",
       status: "pending",
@@ -49,7 +47,6 @@ const bloodRequest = async (req, res) => {
     const savedRequest = await newRequest.save();
     console.log("Saved request:", savedRequest);
 
-    // Get eligible donors (same blood group, valid FCM token, not requester)
     const donors = await User.find({
       bloodType: bloodGroup,
       fcmToken: { $ne: null },
@@ -58,7 +55,7 @@ const bloodRequest = async (req, res) => {
 
     console.log("Found donors:", donors.length);
 
-    // Send notification to each donor
+    // ✅ FIXED: Send complete request data in notification
     for (const donor of donors) {
       if (!donor.fcmToken) continue;
 
@@ -69,7 +66,22 @@ const bloodRequest = async (req, res) => {
           body: `${bloodGroup} blood needed at ${hospitalName}`,
         },
         data: {
+          // ✅ Send ALL required fields
           requestId: savedRequest._id.toString(),
+          type: "blood_request",
+          bloodGroup: bloodGroup,
+          bloodType: bloodGroup, // Flutter uses both names
+          units: units.toString(),
+          unitsNeeded: units.toString(),
+          hospitalName: hospitalName,
+          hospital: hospitalName,
+          phoneNumber: phoneNumber || "",
+          contactNumber: phoneNumber || "",
+          hospitalAddress: `${latitude}, ${longitude}`, // or get actual address
+          urgency: priority || "normal",
+          notes: notes || "",
+          // Add timestamp for sorting
+          timestamp: new Date().toISOString(),
         },
       };
 
