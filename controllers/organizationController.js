@@ -17,12 +17,9 @@ const organizationSignup = async (req, res) => {
       state,
       pincode,
       password,
-      location,
     } = req.body;
 
-    if (!location || !location.lat || !location.lng) {
-      return res.status(400).json({ msg: "Location must include lat and lng" });
-    }
+    
 
     const newOrg = new Organization({
       orgName,
@@ -36,10 +33,7 @@ const organizationSignup = async (req, res) => {
       state,
       pincode,
       password,
-      location: {
-        type: "Point",          
-        coordinates: [location.lng, location.lat], 
-      },
+     
     });
 
     await newOrg.save();
