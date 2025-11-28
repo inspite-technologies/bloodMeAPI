@@ -75,7 +75,12 @@ const bloodRequest = async (req, res) => {
 
       try {
         const response = await admin.messaging().send(message);
-        console.log("Notification sent to:", donor.fcmToken, "Response:", response);
+        console.log(
+          "Notification sent to:",
+          donor.fcmToken,
+          "Response:",
+          response
+        );
       } catch (err) {
         console.error("Failed to send to:", donor.fcmToken, "Error:", err);
 
@@ -90,13 +95,11 @@ const bloodRequest = async (req, res) => {
       msg: "Blood request created successfully",
       data: savedRequest,
     });
-
   } catch (error) {
     console.error("Error creating blood request:", error);
     res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
-
 
 // DONOR RESPONDS TO BLOOD REQUEST
 // -------------------------
@@ -109,6 +112,7 @@ const approveRespond = async (req, res) => {
 
     // Donor live location from frontend
     const { latitude, longitude } = req.body;
+    console.log("Donor location:", latitude, longitude);
 
     if (!latitude || !longitude) {
       return res.status(400).json({ msg: "Donor live location missing" });
@@ -137,20 +141,22 @@ const approveRespond = async (req, res) => {
     const toRad = (v) => (v * Math.PI) / 180;
 
     function haversineDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371;
+      // Validate numbers
+      if (![lat1, lon1, lat2, lon2].every((n) => Number.isFinite(n))) {
+        throw new Error("Invalid coordinates for haversineDistance");
+      }
+
+      const R = 6371; // Earth's radius in km
       const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lat2 - lon1);
+      const dLon = toRad(lon2 - lon1); // <-- fixed
 
       const a =
         Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) *
-          Math.cos(toRad(lat2)) *
-          Math.sin(dLon / 2) ** 2;
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
 
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+      return R * c; // distance in km
     }
-
     const distanceInKm = parseFloat(
       haversineDistance(donorLat, donorLng, reqLat, reqLng).toFixed(2)
     );
@@ -262,7 +268,7 @@ const acceptBloodRequest = async (req, res) => {
 const getAllRequestByStatus = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { status } = req.query;  // 👈 get status from query
+    const { status } = req.query; // 👈 get status from query
 
     // ---------------------------
     //  Validation
@@ -281,7 +287,7 @@ const getAllRequestByStatus = async (req, res) => {
     const filter = { donorId: userId };
 
     if (status) {
-      filter.status = status;  // add status if provided
+      filter.status = status; // add status if provided
     }
 
     // ---------------------------
@@ -297,13 +303,11 @@ const getAllRequestByStatus = async (req, res) => {
       count: acceptedRequests.length,
       data: acceptedRequests,
     });
-
   } catch (err) {
     console.error("Error fetching accepted requests:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
-
 
 // REJECT BLOOD REQUEST
 const rejectBloodRequest = async (req, res) => {
@@ -344,7 +348,7 @@ const getAllBloodRequest = async (req, res) => {
     const requests = await BloodRequest.find({
       isActive: true,
       requesterId: { $ne: userId },
-      status: "pending",   // 🔥 Only show pending requests
+      status: "pending", // 🔥 Only show pending requests
     });
 
     res.status(200).json({ msg: "Pending requests fetched", data: requests });
@@ -353,7 +357,6 @@ const getAllBloodRequest = async (req, res) => {
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
-
 
 // GET BLOOD REQUEST BY ID
 const getBloodRequest = async (req, res) => {
@@ -387,7 +390,7 @@ const getHistory = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ msg: "User not found" });
 
-    const history = await BloodRequest.find({ requesterId: user._id });
+    const history = await AcceptRequest.find({ donorId: user._id });
     res.status(200).json({ msg: "User history fetched", data: history });
   } catch (err) {
     console.error("Error fetching history:", err);
@@ -406,13 +409,11 @@ const getDonorsList = async (req, res) => {
       count: donors.length,
       data: donors,
     });
-  }
-  catch (err) {
+  } catch (err) {
     console.error("Error fetching donors list:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
-
 
 export {
   bloodRequest,
@@ -424,5 +425,9 @@ export {
   getBloodRequest,
   getUserById,
   getHistory,
-  getDonorsList
+  getDonorsList,
 };
+
+
+
+//if the donation completed by the user update the donationCount in user schema and also the latest donation date which 2 days ago from today// Also update the request status to completed
