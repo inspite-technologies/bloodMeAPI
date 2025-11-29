@@ -251,7 +251,7 @@ const organizationLink = async (req, res) => {
     const joinLink = `${process.env.FRONTEND_URL}/join-organization?orgId=${orgId}`;
 
     return res.status(200).json({
-      msg: "Organization join link created successfully",
+      message: "Organization join link created successfully",
       link: joinLink,
       orgId: orgId,
       orgName: organization.orgName,
