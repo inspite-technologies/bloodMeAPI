@@ -228,27 +228,30 @@ const updateUserDetails = async (req, res) => {
   }
 };
 
-const organizationJoin = async (req, res) => {
-  try{
-    const  orgId  = req.body.orgId;
-    const userId = req.user._id;
+const organizationLink = async (req, res) => {
+  try {
+    const orgId = req.body.orgId;
+    
     const organization = await Organization.findById(orgId);
-    if(!organization){
-      return res.status(404).json({msg:"Organization not found"});
+    if (!organization) {
+      return res.status(404).json({ msg: "Organization not found" });
     }
-    const user = await User.findById(userId);
-    if(!user){
-      return res.status(404).json({msg:"User not found"});
-    }
-    user.organizationId = orgId;
-    user.userType = "organization";
-    await user.save();
-    return res.status(200).json({msg:"Joined organization successfully", data:user});
-  }catch(err){
-    console.error("Error joining organization:", err);
+
+    // Generate shareable link with orgId as query parameter
+    const joinLink = `${process.env.FRONTEND_URL}/join-organization?orgId=${orgId}`;
+
+    return res.status(200).json({
+      msg: "Organization join link created successfully",
+      link: joinLink,
+      orgId: orgId,
+      orgName: organization.orgName,
+    });
+  } catch (err) {
+    console.error("Error creating organization link:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
-}
+};
+
 
 export {
   organizationSignup,
@@ -258,5 +261,5 @@ export {
   getAllUsers,
   removeUserDetails,
   updateUserDetails,
-  organizationJoin
+  organizationLink
 };

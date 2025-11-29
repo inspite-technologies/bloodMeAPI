@@ -1,5 +1,5 @@
 import express from 'express';
-import {organizationSignup,organizationLogin,fetchOrgDetails,updateOrgInfo,getAllUsers,removeUserDetails,updateUserDetails,organizationJoin} from '../controllers/organizationController.js'
+import {organizationSignup,organizationLogin,fetchOrgDetails,updateOrgInfo,getAllUsers,removeUserDetails,updateUserDetails,organizationLink} from '../controllers/organizationController.js'
 import { userSignup } from '../controllers/userController.js';
 import protectOrganization from '../middleWare/organizationMiddleware.js'
 import protect from '../middleWare/userMiddleWare.js';
@@ -12,10 +12,11 @@ app.route('/update-user/:id').put(protectOrganization,updateUserDetails)
 app.route('/add-user').post(protectOrganization,userSignup)
 app.route('/login').post(organizationLogin)
 app.route('/profile').get(protectOrganization,fetchOrgDetails).put(protectOrganization,updateOrgInfo)
-app.route('/join-org').post(protect,organizationJoin);
+app.route('/join-org').post(organizationLink);
 
-//pending the add user route,edit,delete by organization only and the join org by user
-
+//edit,delete by organization only and the join org by user
+//leave org by user
+//accept api and history api can be accessed  and update the donation status to complted
 
 
 export default app
