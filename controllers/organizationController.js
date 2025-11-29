@@ -165,7 +165,7 @@ const updateUserDetails = async (req, res) => {
   try {
     let targetUserId;
 
-    // Case 1: Organization updating another user
+    // ORGANIZATION UPDATING MEMBER
     if (req.organization) {
       const loggedInOrgId = req.organization._id;
       targetUserId = req.params.id;
@@ -175,48 +175,57 @@ const updateUserDetails = async (req, res) => {
         return res.status(404).json({ msg: "User not found" });
       }
 
+      // Allow updating user even if they don't have orgId yet
+      // (before joining)
       if (
-        !targetUser.organizationId ||
+        targetUser.organizationId &&
         targetUser.organizationId.toString() !== loggedInOrgId.toString()
       ) {
-        return res
-          .status(403)
-          .json({ msg: "You are not authorized to update this user" });
+        return res.status(403).json({
+          msg: "You are not authorized to update this user",
+        });
       }
     }
-    // Case 2: Normal user updating their own profile
+
+    // NORMAL USER UPDATING THEIR PROFILE
     else if (req.user) {
       targetUserId = req.user._id;
     }
 
-    const blocked = ["userType", "organizationId", "_id", "otp", "isVerified"];
+    // REMOVE RESTRICTED FIELDS
+    const blocked = [
+      "userType",
+      "organizationId",
+      "_id",
+      "otp",
+      "isVerified",
+    ];
+
     const updates = { ...req.body };
     blocked.forEach((key) => delete updates[key]);
 
-    //  Handle status: completed → set isActive to false
+    // STATUS LOGIC
     if (req.body.status === "completed") {
       updates.isActive = false;
       updates.status = "completed";
-    } else if (req.body.status) {
-      // Allow other status values (e.g., "pending", "in-progress")
-      updates.status = req.body.status;
     }
 
-    //  Handle latitude & longitude for location
-    if (req.body.latitude && req.body.longitude) {
+    // FIXED LOCATION LOGIC
+    if ("latitude" in req.body && "longitude" in req.body) {
       updates.location = {
         type: "Point",
-        coordinates: [req.body.longitude, req.body.latitude], // GeoJSON format
+        coordinates: [
+          Number(req.body.longitude),
+          Number(req.body.latitude),
+        ],
       };
-
-      // Remove from body to avoid storing as separate fields
-      delete updates.latitude;
-      delete updates.longitude;
     }
 
-    const updatedUser = await User.findByIdAndUpdate(targetUserId, updates, {
-      new: true,
-    });
+    const updatedUser = await User.findByIdAndUpdate(
+      targetUserId,
+      updates,
+      { new: true }
+    );
 
     return res.status(200).json({
       msg: "User updated successfully",
@@ -227,6 +236,7 @@ const updateUserDetails = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
+
 
 const organizationLink = async (req, res) => {
   try {
