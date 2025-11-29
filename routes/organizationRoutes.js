@@ -1,7 +1,8 @@
 import express from 'express';
-import {organizationSignup,organizationLogin,fetchOrgDetails,updateOrgInfo,getAllUsers,removeUserDetails,updateUserDetails} from '../controllers/organizationController.js'
+import {organizationSignup,organizationLogin,fetchOrgDetails,updateOrgInfo,getAllUsers,removeUserDetails,updateUserDetails,organizationJoin} from '../controllers/organizationController.js'
 import { userSignup } from '../controllers/userController.js';
 import protectOrganization from '../middleWare/organizationMiddleware.js'
+import protect from '../middleWare/userMiddleWare.js';
 
 const app = express.Router()
 
@@ -11,6 +12,11 @@ app.route('/update-user/:id').put(protectOrganization,updateUserDetails)
 app.route('/add-user').post(protectOrganization,userSignup)
 app.route('/login').post(organizationLogin)
 app.route('/profile').get(protectOrganization,fetchOrgDetails).put(protectOrganization,updateOrgInfo)
+app.route('/join-org').post(protect,organizationJoin);
+
+//pending the add user route,edit,delete by organization only and the join org by user
+
+
 
 export default app
 

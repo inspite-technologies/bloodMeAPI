@@ -3,6 +3,8 @@ import protect from "../middleWare/userMiddleWare.js";
 import generateToken from "../utils/generateToken.js";
 import User from '../models/userSchema.js'
 
+
+
 const organizationSignup = async (req, res) => {
   try {
     const {
@@ -226,6 +228,28 @@ const updateUserDetails = async (req, res) => {
   }
 };
 
+const organizationJoin = async (req, res) => {
+  try{
+    const  orgId  = req.body.orgId;
+    const userId = req.user._id;
+    const organization = await Organization.findById(orgId);
+    if(!organization){
+      return res.status(404).json({msg:"Organization not found"});
+    }
+    const user = await User.findById(userId);
+    if(!user){
+      return res.status(404).json({msg:"User not found"});
+    }
+    user.organizationId = orgId;
+    user.userType = "organization";
+    await user.save();
+    return res.status(200).json({msg:"Joined organization successfully", data:user});
+  }catch(err){
+    console.error("Error joining organization:", err);
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+}
+
 export {
   organizationSignup,
   organizationLogin,
@@ -233,5 +257,6 @@ export {
   updateOrgInfo,
   getAllUsers,
   removeUserDetails,
-  updateUserDetails
+  updateUserDetails,
+  organizationJoin
 };
