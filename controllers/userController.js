@@ -246,19 +246,38 @@ const getAllUsers = async (req, res) => {
 const getUserDetails = async (req, res) => {
   try {
     const userId = req.params.id;
+
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ msg: "Invalid user ID" });
     }
-    const user = await User.findById(userId);
+
+    // Populate the organization details if organizationId exists
+    const user = await User.findById(userId)
+      .populate("organizationId", {
+        orgName: 1,
+        contactPerson: 1,
+        email: 1,
+        phone: 1,
+        address: 1,
+        city: 1,
+        state: 1,
+        pincode: 1,
+        organizationType: 1,
+      });
+
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
+
     const donationRecords = await AcceptRequest.find({ donorId: user._id });
     const donationCount = donationRecords.length;
+
     const latestDonation = await AcceptRequest.findOne({
       donorId: user._id,
     }).sort({ createdAt: -1 });
+
     let lastDonationTime = "No donations yet";
+
     if (latestDonation) {
       const diffMs = Date.now() - new Date(latestDonation.createdAt);
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
@@ -285,6 +304,7 @@ const getUserDetails = async (req, res) => {
         lastDonation: lastDonationTime,
       },
     });
+
   } catch (err) {
     console.error("Error during fetching user details:", err);
     return res.status(500).json({

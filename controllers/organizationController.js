@@ -83,20 +83,33 @@ const organizationLogin = async (req, res) => {
 const fetchOrgDetails = async (req, res) => {
   try {
     const id = req.organization._id;
-    console.log("sadasads",id);
-    
+    console.log("Organization ID:", id);
+
+    // Fetch organization details
     const getOrgDetails = await Organization.findById(id);
     if (!getOrgDetails) {
       return res.status(404).json({
-        msg: "invalid id or data not found",
+        msg: "Invalid ID or data not found",
       });
     }
+
+    // Count how many users have this organizationId
+    const userCount = await User.countDocuments({ organizationId: id });
+
     return res.status(200).json({
-      msg: "details fetched successfully",
-      data: getOrgDetails,
+      msg: "Details fetched successfully",
+      data: {
+        organization: getOrgDetails,
+        totalUsers: userCount,
+      },
     });
+
   } catch (err) {
-    console.error("error during fetching the data", err);
+    console.error("Error during fetching the data", err);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+      error: err.message,
+    });
   }
 };
 
