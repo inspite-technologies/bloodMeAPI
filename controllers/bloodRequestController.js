@@ -263,18 +263,7 @@ const acceptBloodRequest = async (req, res) => {
       { new: true }
     );
     //  USER DB UPDATED SUCCESSFULLY 
-
-    const donor = await User.findById(donorId);
-    if (donor?.fcmToken) {
-      await admin.messaging().send({
-        token: donor.fcmToken,
-        notification: {
-          title: "Your Donation is Completed",
-          body: "You have successfully completed a blood donation.",
-        },
-        data: { requestId: requestId.toString() },
-      });
-    }
+    
 
     res.status(201).json({
       msg: "Donation completed successfully",
