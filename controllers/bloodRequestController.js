@@ -228,61 +228,65 @@ const approveRespond = async (req, res) => {
   }
 };
 
-
-
 // REQUESTER ACCEPTS DONOR
 const acceptBloodRequest = async (req, res) => {
   try {
     const requestId = req.params.id;
-    const { donorId, remarks } = req.body;
-    const requesterId = req.user._id;
-
-    console.log("Accepting donor:", donorId, "for request:", requestId);
+    const { remarks } = req.body;
+    const donorId = req.user._id;
 
     const request = await BloodRequest.findById(requestId);
     if (!request) return res.status(404).json({ msg: "Request not found" });
 
-    if (request.requesterId.toString() !== requesterId.toString())
-      return res
-        .status(403)
-        .json({ msg: "You cannot accept donor for this request" });
-
+    // Create completed donation record
     const acceptRecord = await AcceptRequest.create({
       requestId,
       donorId,
       remarks,
-      status: "accepted",
+      status: "completed",
     });
-    console.log("Accept record created:", acceptRecord);
 
+    // Update request -> completed
     await BloodRequest.findByIdAndUpdate(
       requestId,
-      { status: "accepted", selectedDonor: donorId },
+      { status: "completed", selectedDonor: donorId },
       { new: true }
     );
 
+    //  UPDATE USER DONATION COUNT + LAST DONATION DATE 
+    await User.findByIdAndUpdate(
+      donorId,
+      {
+        $inc: { donationCount: 1 },       // Increase donation count
+        lastDonationDate: new Date(),     // Set last donated date
+      },
+      { new: true }
+    );
+    //  USER DB UPDATED SUCCESSFULLY 
+
     const donor = await User.findById(donorId);
     if (donor?.fcmToken) {
-      console.log("Sending notification to donor:", donor.fcmToken);
       await admin.messaging().send({
         token: donor.fcmToken,
         notification: {
-          title: "Your Response Was Accepted",
-          body: "The requester has selected you as donor.",
+          title: "Your Donation is Completed",
+          body: "You have successfully completed a blood donation.",
         },
         data: { requestId: requestId.toString() },
       });
-      console.log("Notification sent to donor");
     }
 
-    res
-      .status(201)
-      .json({ msg: "Donor accepted successfully", data: acceptRecord });
+    res.status(201).json({
+      msg: "Donation completed successfully",
+      data: acceptRecord,
+    });
+
   } catch (err) {
     console.error("Error in acceptBloodRequest:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
+
 
 const getAllRequestByStatus = async (req, res) => {
   try {
@@ -364,18 +368,47 @@ const getAllBloodRequest = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const requests = await BloodRequest.find({
-      isActive: true,
-      requesterId: { $ne: userId },
-      status: "pending", // 🔥 Only show pending requests
-    });
+    const userLat = parseFloat(req.query.lat);
+    const userLng = parseFloat(req.query.lng);
 
-    res.status(200).json({ msg: "Pending requests fetched", data: requests });
-  } catch (err) {
-    console.error("Error fetching blood requests:", err);
-    res.status(500).json({ msg: "Server error", error: err.message });
+    if (!userLat || !userLng) {
+      return res.status(400).json({ msg: "Latitude & Longitude required" });
+    }
+
+    // ✅ 1. Update user location in DB
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        location: {
+          type: "Point",
+          coordinates: [userLng, userLat],
+        },
+      },
+      { new: true }
+    );
+
+    // ✅ 2. Fetch requests with distance
+    const requests = await BloodRequest.aggregate([
+      {
+        $geoNear: {
+          near: { type: "Point", coordinates: [userLng, userLat] },
+          distanceField: "distance",
+          spherical: true,
+          query: {
+            isActive: true,
+            requesterId: { $ne: userId },
+            status: "pending",
+          },
+        },
+      },
+    ]);
+
+    res.status(200).json({ msg: "Requests fetched", data: requests });
+  } catch (error) {
+    res.status(500).json({ msg: "Server error", error: error.message });
   }
 };
+
 
 // GET BLOOD REQUEST BY ID
 const getBloodRequest = async (req, res) => {

@@ -31,8 +31,8 @@ const acceptRequestSchema = new mongoose.Schema(
     // NEW FIELD: save action (approved/accepted/completed)
     status: {
       type: String,
-      enum: ["approved", "accepted", "completed"],
-      default: "approved",
+      enum: [ "completed"],
+      default: "completed",
     },
   },
   { timestamps: true }
