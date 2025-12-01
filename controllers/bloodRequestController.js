@@ -122,9 +122,7 @@ const approveRespond = async (req, res) => {
     const donorId = req.user._id;
     const requestId = req.params.id;
 
-    // Donor live location from frontend
     const { latitude, longitude } = req.body;
-    console.log("Donor location:", latitude, longitude);
 
     if (!latitude || !longitude) {
       return res.status(400).json({ msg: "Donor live location missing" });
@@ -133,48 +131,48 @@ const approveRespond = async (req, res) => {
     const donorLat = parseFloat(latitude);
     const donorLng = parseFloat(longitude);
 
-    // Donor & Request data
-    const donor = await User.findById(donorId);
+    // POPULATE DONOR DETAILS HERE
+    const donor = await User.findById(donorId)
+      .select("name phoneNumber bloodType organizationId");
+
     const request = await BloodRequest.findById(requestId);
 
-    if (!request)
+    if (!request) {
       return res.status(404).json({ msg: "Blood request not found" });
-
-    // Request location
-    if (!request.location?.coordinates) {
-      return res.status(400).json({
-        msg: "Request location missing",
-      });
     }
 
     const [reqLng, reqLat] = request.location.coordinates;
 
-    // Distance calculation
     const toRad = (v) => (v * Math.PI) / 180;
 
     function haversineDistance(lat1, lon1, lat2, lon2) {
-      // Validate numbers
-      if (![lat1, lon1, lat2, lon2].every((n) => Number.isFinite(n))) {
-        throw new Error("Invalid coordinates for haversineDistance");
-      }
-
-      const R = 6371; // Earth's radius in km
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1); // <-- fixed
-
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // distance in km
+      return (
+        6371 *
+        2 *
+        Math.atan2(
+          Math.sqrt(
+            Math.sin(toRad(lat2 - lat1) / 2) ** 2 +
+            Math.cos(toRad(lat1)) *
+              Math.cos(toRad(lat2)) *
+              Math.sin(toRad(lon2 - lon1) / 2) ** 2
+          ),
+          Math.sqrt(
+            1 -
+              (Math.sin(toRad(lat2 - lat1) / 2) ** 2 +
+                Math.cos(toRad(lat1)) *
+                  Math.cos(toRad(lat2)) *
+                  Math.sin(toRad(lon2 - lon1) / 2) ** 2)
+          )
+        )
+      );
     }
+
     const distanceInKm = parseFloat(
       haversineDistance(donorLat, donorLng, reqLat, reqLng).toFixed(2)
     );
 
-    // Save Accept Request
-    const saveAccept = await AcceptRequest.create({
+    // SAVE RESPONSE
+    let saveAccept = await AcceptRequest.create({
       requestId,
       donorId,
       organizationId: donor.organizationId || null,
@@ -183,13 +181,20 @@ const approveRespond = async (req, res) => {
       status: "approved",
     });
 
-    // Update request
+    // POPULATE DONOR DETAILS IN RESPONSE
+    saveAccept = await saveAccept.populate(
+      "donorId",
+      "name phoneNumber bloodType"
+    );
+
+    // UPDATE REQUEST STATUS
     request.status = "responded";
     request.distanceFromDonor = distanceInKm;
     await request.save();
 
-    // Notify requester
+    // NOTIFY REQUESTER
     const requester = await User.findById(request.requesterId);
+
     if (!requester || !requester.fcmToken) {
       return res.status(400).json({ msg: "Requester has no FCM token" });
     }
@@ -198,12 +203,12 @@ const approveRespond = async (req, res) => {
       token: requester.fcmToken,
       notification: {
         title: "Donor Matched!",
-        body: `Donor ${donor.name} approved your request. Distance: ${distanceInKm} km`,
+        body: `Donor ${saveAccept.donorId.name} approved your request. Distance: ${distanceInKm} km`,
       },
       data: {
-        donorName: donor.name,
-        donorPhone: donor.phoneNumber,
-        donorBloodGroup: donor.bloodType,
+        donorName: saveAccept.donorId.name,
+        donorPhone: saveAccept.donorId.phoneNumber,
+        donorBloodGroup: saveAccept.donorId.bloodType,
         requestId,
         distance: distanceInKm.toString(),
       },
@@ -222,6 +227,8 @@ const approveRespond = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
 
 // REQUESTER ACCEPTS DONOR
 const acceptBloodRequest = async (req, res) => {
