@@ -439,16 +439,44 @@ const getUserById = async (req, res) => {
 // GET LOGGED-IN USER BLOOD REQUEST HISTORY
 const getHistory = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const userId = req.user._id;
+
+    // Validate user
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ msg: "User not found" });
 
-    const history = await AcceptRequest.find({ donorId: user._id });
-    res.status(200).json({ msg: "User history fetched", data: history });
+    // Read status from query (optional)
+    const { status } = req.query;
+
+    let filter = { donorId: userId };
+
+    // If "?status=pending" or "?status=completed" passed
+    if (status) {
+      filter.status = status;
+    }
+
+    const history = await AcceptRequest.find(filter)
+      .populate({
+        path: "requestId",
+        select: "hospitalName createdAt units",
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      msg: "History fetched successfully",
+      statusFilter: status || "all",
+      count: history.length,
+      data: history
+    });
   } catch (err) {
     console.error("Error fetching history:", err);
-    res.status(500).json({ msg: "Server error", error: err.message });
+    res.status(500).json({
+      msg: "Server error",
+      error: err.message,
+    });
   }
 };
+
 
 const getDonorsList = async (req, res) => {
   try {
