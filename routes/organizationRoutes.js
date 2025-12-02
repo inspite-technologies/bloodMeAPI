@@ -7,6 +7,7 @@ import protect from '../middleWare/userMiddleWare.js';
 const app = express.Router()
 
 app.route('/').post(organizationSignup).get(protectOrganization,getAllUsers)
+
 app.route('/delete-user/:id').delete(protectOrganization,removeUserDetails)
 app.route('/update-user/:id').put(protectOrganization,updateUserDetails)
 app.route('/add-user').post(protectOrganization,userSignup)

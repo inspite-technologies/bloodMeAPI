@@ -23,7 +23,7 @@ const bloodRequestSchema = new Schema(
       type:String,
       required:true
     },
-    address:{
+    hospitalAddress:{
       type:String,
       required:true
     },
