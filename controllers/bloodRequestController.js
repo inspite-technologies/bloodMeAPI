@@ -132,8 +132,9 @@ const approveRespond = async (req, res) => {
     const donorLng = parseFloat(longitude);
 
     // POPULATE DONOR DETAILS HERE
-    const donor = await User.findById(donorId)
-      .select("name phoneNumber bloodType organizationId");
+    const donor = await User.findById(donorId).select(
+      "name phoneNumber bloodType organizationId"
+    );
 
     const request = await BloodRequest.findById(requestId);
 
@@ -152,9 +153,9 @@ const approveRespond = async (req, res) => {
         Math.atan2(
           Math.sqrt(
             Math.sin(toRad(lat2 - lat1) / 2) ** 2 +
-            Math.cos(toRad(lat1)) *
-              Math.cos(toRad(lat2)) *
-              Math.sin(toRad(lon2 - lon1) / 2) ** 2
+              Math.cos(toRad(lat1)) *
+                Math.cos(toRad(lat2)) *
+                Math.sin(toRad(lon2 - lon1) / 2) ** 2
           ),
           Math.sqrt(
             1 -
@@ -228,17 +229,22 @@ const approveRespond = async (req, res) => {
   }
 };
 
-// REQUESTER ACCEPTS DONOR
 const acceptBloodRequest = async (req, res) => {
   try {
     const requestId = req.params.id;
     const { remarks } = req.body;
-    const donorId = req.user._id;
+    const donorId = req.user._id;   // logged-in donor
 
     const request = await BloodRequest.findById(requestId);
-    if (!request) return res.status(404).json({ msg: "Request not found" });
+    if (!request)
+      return res.status(404).json({ msg: "Request not found" });
 
-    // Create completed donation record
+    // Donor should NOT be requester
+    if (request.requesterId.toString() === donorId.toString()) {
+      return res.status(400).json({ msg: "Requester cannot accept own request" });
+    }
+
+    // Create accept record
     const acceptRecord = await AcceptRequest.create({
       requestId,
       donorId,
@@ -246,36 +252,52 @@ const acceptBloodRequest = async (req, res) => {
       status: "completed",
     });
 
-    // Update request -> completed
+    // Update blood request status
     await BloodRequest.findByIdAndUpdate(
       requestId,
       { status: "completed", selectedDonor: donorId },
       { new: true }
     );
 
-    //  UPDATE USER DONATION COUNT + LAST DONATION DATE 
+    // Update donor stats
     await User.findByIdAndUpdate(
       donorId,
       {
-        $inc: { donationCount: 1 },       // Increase donation count
-        lastDonationDate: new Date(),     // Set last donated date
-      },
-      { new: true }
+        $inc: { donationCount: 1 },
+        lastDonationDate: new Date(),
+      }
     );
-    //  USER DB UPDATED SUCCESSFULLY 
-    
 
-    res.status(201).json({
-      msg: "Donation completed successfully",
+    // Send notification to REQUESTER
+    const requester = await User.findById(request.requesterId);
+
+    if (requester?.fcmToken) {
+      console.log("Sending notification to requester:", requester.fcmToken);
+
+      await admin.messaging().send({
+        token: requester.fcmToken,
+        notification: {
+          title: "Donor Accepted Your Request",
+          body: "A donor has accepted and is ready to help you.",
+        },
+        data: {
+          requestId: requestId.toString(),
+          donorId: donorId.toString(),
+        },
+      });
+      console.log("Notification sent to requester");
+    }
+
+    return res.status(201).json({
+      msg: "Donor accepted successfully",
       data: acceptRecord,
     });
 
   } catch (err) {
     console.error("Error in acceptBloodRequest:", err);
-    res.status(500).json({ msg: "Server error", error: err.message });
+    return res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
-
 
 const getAllRequestByStatus = async (req, res) => {
   try {
@@ -398,7 +420,6 @@ const getAllBloodRequest = async (req, res) => {
   }
 };
 
-
 // GET BLOOD REQUEST BY ID
 const getBloodRequest = async (req, res) => {
   try {
@@ -455,7 +476,7 @@ const getHistory = async (req, res) => {
       msg: "History fetched successfully",
       statusFilter: status || "all",
       count: history.length,
-      data: history
+      data: history,
     });
   } catch (err) {
     console.error("Error fetching history:", err);
@@ -465,7 +486,6 @@ const getHistory = async (req, res) => {
     });
   }
 };
-
 
 const getDonorsList = async (req, res) => {
   try {
@@ -496,7 +516,5 @@ export {
   getHistory,
   getDonorsList,
 };
-
-
 
 //if the donation completed by the user update the donationCount in user schema and also the latest donation date which 2 days ago from today// Also update the request status to completed

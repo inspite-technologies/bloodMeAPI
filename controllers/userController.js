@@ -229,20 +229,88 @@ const resetPassword = async (req, res) => {
 };
 
 const getAllUsers = async (req, res) => {
-  try {
-    const getUserDetails = await User.find();
-    return res.status(200).json({
-      msg: "details fetched successfully",
-      getUserDetails,
-    });
-  } catch (err) {
-    console.error("error during fetching the users", err);
-    res.status(400).json({
-      msg: err,
-    });
-  }
-};
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
+    const totalUsers = await User.countDocuments({});
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    // --- 3. Fetch Paginated Users and Join Last Donation Date ---
+    const users = await User.aggregate([
+      { $sort: { createdAt: -1 } }, 
+      { $skip: skip },
+      { $limit: limit },
+
+      // Stage 1: $lookup (JOIN) to find related donation records
+      {
+        $lookup: {
+          // ✅ Using the correct pluralized, lowercase collection name
+          from: 'acceptrequests', 
+          localField: '_id',
+          foreignField: 'donorId',
+          as: 'donationRecords',
+          // 💡 NEW: Pipeline to filter only records with status: "completed"
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  // 🛑 Match records where the 'status' field is "completed"
+                  $eq: ["$status", "completed"] 
+                }
+              }
+            }
+          ]
+        }
+      },
+
+      // Stage 2: Calculate the last donation date
+      {
+        $addFields: {
+          lastDonation: {
+            $max: '$donationRecords.createdAt' 
+          }
+        }
+      },
+
+      // Stage 3: Project the final document structure
+      {
+        $project: {
+          _id: 1, 
+          name: 1,
+          email: 1,
+          bloodType: 1,
+          donationCount: 1,
+          isAvailableDonor: 1,
+          phoneNumber: 1,
+          dateOfBirth: 1,
+          weight: 1,
+          height: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          lastDonation: 1, 
+        }
+      }
+    ]);
+    
+    // --- 4. Return the Expected Data Structure ---
+    return res.status(200).json({
+      msg: "Details fetched successfully with pagination and last donation date",
+      users: users,
+      currentPage: page,
+      totalPages: totalPages,
+      totalUsers: totalUsers,
+    });
+
+  } catch (err) {
+    console.error("error during fetching the users", err);
+    res.status(400).json({
+      msg: "Failed to fetch user data.",
+      error: err.message,
+    });
+  }
+};
 const getUserDetails = async (req, res) => {
   try {
     const userId = req.params.id;

@@ -2,6 +2,7 @@ import express from "express";
 import userRoutes from "./routes/userRoutes.js";
 import requestRoutes from "./routes/requestRoutes.js";
 import organizationRoutes from "./routes/organizationRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import cors from 'cors';
 
 const app = express();
@@ -9,7 +10,13 @@ const app = express();
 // ✅ UPDATED: Allow all origins for development (mobile devices can access)
 app.use(
   cors({
-    origin: "*", // Allow all origins during development
+    origin: [
+      "http://localhost:5173", // React (Vite)
+      "http://localhost:3000", // If using React CRA
+      "http://YOUR_IP:5173",   // React from other devices
+      "http://YOUR_IP:8080",   // Flutter Web (if used)
+      "*",                     // Allow all (mobile devices)
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
@@ -44,5 +51,6 @@ app.get("/api/test", (req, res) => {
 app.use("/user", userRoutes);
 app.use("/request", requestRoutes);
 app.use("/organization", organizationRoutes);
+app.use("/admin", adminRoutes); 
 
 export default app;
