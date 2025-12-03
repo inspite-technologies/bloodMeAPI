@@ -3,6 +3,7 @@ import userRoutes from "./routes/userRoutes.js";
 import requestRoutes from "./routes/requestRoutes.js";
 import organizationRoutes from "./routes/organizationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import bannerRoutes from './routes/bannerRoutes.js'
 import cors from 'cors';
 
 const app = express();
@@ -52,5 +53,6 @@ app.use("/user", userRoutes);
 app.use("/request", requestRoutes);
 app.use("/organization", organizationRoutes);
 app.use("/admin", adminRoutes); 
+app.use('/banner', bannerRoutes);
 
 export default app;

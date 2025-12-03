@@ -17,22 +17,10 @@ const acceptRequestSchema = new mongoose.Schema(
       ref: "Organization",
       default: null,
     },
-    remarks: {
-      type: String,
-      default: "",
-    },
-
     // NEW FIELD: Save distance
     distanceInKm: {
       type: Number,
       default: null,
-    },
-
-    // NEW FIELD: save action (approved/accepted/completed)
-    status: {
-      type: String,
-      enum: [ "completed"],
-      default: "completed",
     },
   },
   { timestamps: true }

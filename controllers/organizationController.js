@@ -275,7 +275,27 @@ const organizationLink = async (req, res) => {
   }
 };
 
-
+const getAllOrganizations = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const organizations = await Organization.find()
+      .skip(skip)
+      .limit(limit);
+    const total = await Organization.countDocuments();
+    res.status(200).json({
+      msg: "Organizations fetched successfully",
+      data: organizations,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    console.error("Error fetching organizations:", err);
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+};
 
 
 export {
@@ -286,5 +306,6 @@ export {
   getAllUsers,
   removeUserDetails,
   updateUserDetails,
-  organizationLink
+  organizationLink,
+  getAllOrganizations
 };

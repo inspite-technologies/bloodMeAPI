@@ -1,13 +1,14 @@
 import express from 'express';
-import {organizationSignup,organizationLogin,fetchOrgDetails,updateOrgInfo,getAllUsers,removeUserDetails,updateUserDetails,organizationLink} from '../controllers/organizationController.js'
+import {organizationSignup,organizationLogin,fetchOrgDetails,updateOrgInfo,getAllUsers,removeUserDetails,updateUserDetails,organizationLink,getAllOrganizations} from '../controllers/organizationController.js'
 import { userSignup } from '../controllers/userController.js';
 import protectOrganization from '../middleWare/organizationMiddleware.js'
 import protect from '../middleWare/userMiddleWare.js';
+import protectAdmin from '../middleWare/adminMiddleWare.js'
 
 const app = express.Router()
 
 app.route('/').post(organizationSignup).get(protectOrganization,getAllUsers)
-
+app.route('/all-organizations').get(protectAdmin,getAllOrganizations)
 app.route('/delete-user/:id').delete(protectOrganization,removeUserDetails)
 app.route('/update-user/:id').put(protectOrganization,updateUserDetails)
 app.route('/add-user').post(protectOrganization,userSignup)

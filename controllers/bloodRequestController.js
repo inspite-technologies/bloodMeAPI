@@ -236,23 +236,22 @@ const approveRespond = async (req, res) => {
 const acceptBloodRequest = async (req, res) => {
   try {
     const requestId = req.params.id;
-    const { remarks } = req.body;
-    const donorId = req.user._id;   // logged-in donor
+    const donorId = req.user._id; // logged-in donor
 
     const request = await BloodRequest.findById(requestId);
-    if (!request)
-      return res.status(404).json({ msg: "Request not found" });
+    if (!request) return res.status(404).json({ msg: "Request not found" });
 
     // Donor should NOT be requester
     if (request.requesterId.toString() === donorId.toString()) {
-      return res.status(400).json({ msg: "Requester cannot accept own request" });
+      return res
+        .status(400)
+        .json({ msg: "Requester cannot accept own request" });
     }
 
     // Create accept record
     const acceptRecord = await AcceptRequest.create({
       requestId,
       donorId,
-      remarks,
       status: "completed",
     });
 
@@ -264,13 +263,10 @@ const acceptBloodRequest = async (req, res) => {
     );
 
     // Update donor stats
-    await User.findByIdAndUpdate(
-      donorId,
-      {
-        $inc: { donationCount: 1 },
-        lastDonationDate: new Date(),
-      }
-    );
+    await User.findByIdAndUpdate(donorId, {
+      $inc: { donationCount: 1 },
+      lastDonationDate: new Date(),
+    });
 
     // Send notification to REQUESTER
     const requester = await User.findById(request.requesterId);
@@ -281,9 +277,10 @@ const acceptBloodRequest = async (req, res) => {
       await admin.messaging().send({
         token: requester.fcmToken,
         notification: {
-          title: "Donor Accepted Your Request",
-          body: "A donor has accepted and is ready to help you.",
+          title: "Donation Completed",
+          body: "The blood donation process has been successfully completed.",
         },
+
         data: {
           requestId: requestId.toString(),
           donorId: donorId.toString(),
@@ -293,12 +290,11 @@ const acceptBloodRequest = async (req, res) => {
     }
 
     return res.status(201).json({
-      msg: "Donor accepted successfully",
+      msg: "Donor completed successfully",
       data: acceptRecord,
     });
-
   } catch (err) {
-    console.error("Error in acceptBloodRequest:", err);
+    console.error("Error in complete the blood donation:", err);
     return res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
