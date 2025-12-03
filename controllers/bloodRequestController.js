@@ -125,58 +125,52 @@ const approveRespond = async (req, res) => {
   try {
     const donorId = req.user._id;
     const requestId = req.params.id;
+
     const donor = await User.findById(donorId).select(
       "name phoneNumber bloodType organizationId"
     );
 
     const request = await BloodRequest.findById(requestId);
-
     if (!request) {
       return res.status(404).json({ msg: "Blood request not found" });
     }
-    let saveAccept = await AcceptRequest.create({
-      requestId,
-      donorId,
-      organizationId: donor.organizationId || null,
-      remarks: "Donor confirmed",
-      status: "approved",
-    });
 
-    // POPULATE DONOR DETAILS IN RESPONSE
-    saveAccept = await saveAccept.populate(
-      "donorId",
-      "name phoneNumber bloodType"
+    // Create or update AcceptRequest for this donor
+    let saveAccept = await AcceptRequest.findOneAndUpdate(
+      { requestId, donorId },
+      {
+        organizationId: donor.organizationId || null,
+        status: "approved",
+      },
+      { new: true, upsert: true } // create if not exists
     );
-    request.status = "responded";
-    request.distanceFromDonor = distanceInKm;
-    await request.save();
 
+    // Populate donor details
+    saveAccept = await saveAccept.populate("donorId", "name phoneNumber bloodType");
+
+    // Send notification to requester
     const requester = await User.findById(request.requesterId);
-
-    if (!requester || !requester.fcmToken) {
-      return res.status(400).json({ msg: "Requester has no FCM token" });
+    if (requester?.fcmToken) {
+      const message = {
+        token: requester.fcmToken,
+        notification: {
+          title: "Donation Completed",
+          body: "The donor has confirmed your blood request is completed.",
+        },
+        data: {
+          donorName: saveAccept.donorId.name,
+          donorPhone: saveAccept.donorId.phoneNumber,
+          donorBloodGroup: saveAccept.donorId.bloodType,
+          requestId,
+        },
+      };
+      await admin.messaging().send(message);
     }
 
-    const message = {
-      token: requester.fcmToken,
-     notification: {
-        title: "Donation Completed",
-        body: "The donor has confirmed your blood request is completed.",
-      },
-      data: {
-        donorName: saveAccept.donorId.name,
-        donorPhone: saveAccept.donorId.phoneNumber,
-        donorBloodGroup: saveAccept.donorId.bloodType,
-        requestId,
-      },
-    };
-
-    await admin.messaging().send(message);
-
     res.json({
-      msg: "Response saved, status updated & notification sent!",
+      msg: "Donor confirmed donation & notification sent!",
       savedResponse: saveAccept,
-      updatedStatus: request.status,
+      bloodRequestStatus: request.status, // unchanged
     });
   } catch (err) {
     console.error("Error in approveRespond:", err);
@@ -190,39 +184,41 @@ const acceptBloodRequest = async (req, res) => {
     const { donorId } = req.body;
     const requesterId = req.user._id;
 
-    console.log("Accepting donor:", donorId, "for request:", requestId);
-
+    // Find the blood request
     const request = await BloodRequest.findById(requestId);
     if (!request) return res.status(404).json({ msg: "Request not found" });
 
-    if (request.requesterId.toString() !== requesterId.toString())
-      return res
-        .status(403)
-        .json({ msg: "You cannot accept donor for this request" });
+    // Only the requester can mark the donation as completed
+    if (request.requesterId.toString() !== requesterId.toString()) {
+      return res.status(403).json({ msg: "You cannot complete this donation" });
+    }
 
-    // Create accept record
-    const acceptRecord = await AcceptRequest.create({
-      requestId,
-      donorId,
-      status: "completed",
-    });
-    console.log("Accept record created:", acceptRecord);
-
-    // Update blood request status
-    await BloodRequest.findByIdAndUpdate(
-      requestId,
-      { status: "completed", selectedDonor: donorId },
-      { new: true }
+    // Update AcceptRequest record
+    const acceptRecord = await AcceptRequest.findOneAndUpdate(
+      { requestId, donorId },
+      { status: "completed" },
+      { new: true, upsert: true } // create if it doesn't exist
     );
 
-    // Update donor's donation count
+    // Update BloodRequest status
+    request.status = "completed";
+    request.selectedDonor = donorId;
+    await request.save();
+
+    // Update donor's donation count and latest donation date
     const donor = await User.findById(donorId);
     if (donor) {
       donor.donationCount = (donor.donationCount || 0) + 1;
+
+      // Set latest donation date to 2 days ago
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      donor.latestDonationDate = twoDaysAgo;
+
       await donor.save();
 
+      // Send notification to donor
       if (donor.fcmToken) {
-        console.log("Sending notification to donor:", donor.fcmToken);
         await admin.messaging().send({
           token: donor.fcmToken,
           notification: {
@@ -231,13 +227,14 @@ const acceptBloodRequest = async (req, res) => {
           },
           data: { requestId: requestId.toString() },
         });
-        console.log("Notification sent to donor");
       }
     }
 
-    res
-      .status(201)
-      .json({ msg: "Donation completed successfully", data: acceptRecord });
+    res.status(200).json({
+      msg: "Donation completed successfully",
+      acceptRecord,
+      updatedBloodRequest: request,
+    });
   } catch (err) {
     console.error("Error in acceptBloodRequest:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
@@ -247,35 +244,41 @@ const acceptBloodRequest = async (req, res) => {
 // REJECT BLOOD REQUEST
 const rejectBloodRequest = async (req, res) => {
   try {
-    const { requestId } = req.body;
-    if (!requestId)
-      return res.status(400).json({ msg: "Request ID is required" });
+    const { requestId, donorId } = req.body;
 
-    const request = await BloodRequest.findById(requestId);
-    if (!request)
-      return res.status(404).json({ msg: "Blood request not found" });
+    if (!requestId || !donorId)
+      return res.status(400).json({ msg: "Request ID and Donor ID are required" });
 
-    if (request.status === "completed") {
-      return res
-        .status(400)
-        .json({ msg: "Cannot reject an comnpleted request" });
-    }
-
-    const updatedRequest = await BloodRequest.findByIdAndUpdate(
-      requestId,
+    // Update the AcceptRequest only
+    const updatedAccept = await AcceptRequest.findOneAndUpdate(
+      { requestId, donorId },
       { status: "rejected" },
-      { new: true }
+      { new: true, upsert: true } // upsert: create record if it doesn't exist
     );
 
+    // Send notification to donor (optional)
+    const donor = await User.findById(donorId);
+    if (donor?.fcmToken) {
+      await admin.messaging().send({
+        token: donor.fcmToken,
+        notification: {
+          title: "Blood Donation Rejected",
+          body: `Your offer to donate for this request was rejected.`,
+        },
+        data: { requestId: requestId.toString() },
+      });
+    }
+
     res.status(200).json({
-      msg: "Blood request rejected successfully",
-      data: updatedRequest,
+      msg: "Donor response updated successfully",
+      data: updatedAccept,
     });
   } catch (err) {
-    console.error("Error rejecting blood request:", err);
+    console.error("Error updating donor response:", err);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
+
 
 const getAllRequestByStatus = async (req, res) => {
   try {

@@ -52,7 +52,7 @@ const bloodRequestSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "responded", "accepted", "completed", "rejected"],
+      enum: ["pending","completed"],
       default: "pending",
     },
     priority: {
