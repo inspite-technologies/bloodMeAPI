@@ -8,7 +8,7 @@ app.route('/').post(protect,updateFcmToken,bloodRequest).get(protect,getAllBlood
 app.route('/accept').post(protect,updateFcmToken,acceptBloodRequest).get(protect, getAllRequestByStatus);
 app.route('/reject').post(protect,updateFcmToken,rejectBloodRequest);
 app.route('/approve/:id').post(protect,updateFcmToken,approveRespond);
-app.route('/accept/:id').post(protect,updateFcmToken,acceptBloodRequest);
+app.route('/confirm/:id').post(protect,updateFcmToken,acceptBloodRequest);
 
 // MOVE THIS TO LAST
 app.route('/:id').get(getBloodRequest);
