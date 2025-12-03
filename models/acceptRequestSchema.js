@@ -17,11 +17,7 @@ const acceptRequestSchema = new mongoose.Schema(
       ref: "Organization",
       default: null,
     },
-    // NEW FIELD: Save distance
-    distanceInKm: {
-      type: Number,
-      default: null,
-    },
+    status: { type: String, enum: ["approved", "completed"], default: "approved" },
   },
   { timestamps: true }
 );

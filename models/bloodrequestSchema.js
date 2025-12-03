@@ -19,24 +19,24 @@ const bloodRequestSchema = new Schema(
       required: true,
       min: 1,
     },
-    patientName:{
-      type:String,
-      required:true
+    patientName: {
+      type: String,
+      required: true,
     },
-    hospitalAddress:{
-      type:String,
-      required:true
+    hospitalAddress: {
+      type: String,
+      required: true,
     },
-      hospitalName:{
-      type:String,
-      required:true
+    hospitalName: {
+      type: String,
+      required: true,
     },
-    phoneNumber:{
-      type:String,
-      required:true
+    phoneNumber: {
+      type: String,
+      required: true,
     },
-    notes:{
-      type:String
+    notes: {
+      type: String,
     },
     location: {
       type: {
@@ -52,7 +52,7 @@ const bloodRequestSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["pending","completed"],
+      enum: ["pending", "responded", "accepted", "completed", "rejected"],
       default: "pending",
     },
     priority: {

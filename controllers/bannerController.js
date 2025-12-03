@@ -52,6 +52,29 @@ const createBanner = async (req, res) => {
   }
 };
 
+const fetchAllBanners = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const banners = await Banner.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    const total = await Banner.countDocuments();
+    res.status(200).json({
+      msg: "Banners fetched successfully",
+      data: banners,
+      page,
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+    });
+  } catch (error) {
+    console.error("Error fetching banners:", error);
+    res.status(500).json({ msg: "Server error", error: error.message });
+  }
+}
 
 
-export { createBanner };
+
+export { createBanner ,fetchAllBanners};
