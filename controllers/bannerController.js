@@ -123,12 +123,45 @@ const fetchAllBanners = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const banners = await Banner.find()
+    // Step 1: Fetch banners
+    let banners = await Banner.find()
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
+
+    // Step 2: AUTO-EXPIRE BLOCK
+    const now = new Date();
+    const updateOps = [];
+
+    banners.forEach((banner) => {
+      const hasExpired = new Date(banner.endDate) < now;
+
+      // Only update if it's expired AND still active
+      if (hasExpired && banner.isActive === true) {
+        updateOps.push(
+          Banner.updateOne(
+            { _id: banner._id },
+            { $set: { isActive: false } }
+          )
+        );
+      }
+    });
+
+    // Step 3: Apply DB updates if needed
+    if (updateOps.length > 0) {
+      await Promise.all(updateOps);
+
+      // Step 4: Re-fetch updated banners after expiry update
+      banners = await Banner.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+    }
+
+    // Step 5: Count total docs
     const total = await Banner.countDocuments();
 
+    // Step 6: Respond to client
     res.status(200).json({
       msg: "Banners fetched successfully",
       data: banners,
@@ -136,7 +169,9 @@ const fetchAllBanners = async (req, res) => {
       totalPages: Math.ceil(total / limit),
       totalItems: total,
     });
+
   } catch (err) {
+    console.error("Banner fetch error:", err.message);
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };

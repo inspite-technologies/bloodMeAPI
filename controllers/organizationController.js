@@ -135,24 +135,49 @@ const updateOrgInfo = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
-    const orgId = req.organization._id; // from middleware
+    const orgId = req.organization._id;
+    const limit = parseInt(req.query.limit) || 10;
+    const lastId = req.query.lastId; // for infinite scroll
+    const search = req.query.search?.trim() || "";
 
-    const users = await User.find({
-      userType: "organization",
-      organizationId: orgId,
-    });
+    const filter = { userType: "organization", organizationId: orgId };
 
-    return res.status(200).json({
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (lastId) {
+      // Fetch users older than last fetched user
+      const lastUser = await User.findById(lastId);
+      if (lastUser) {
+        filter.createdAt = { $lt: lastUser.createdAt };
+      }
+    }
+
+    const users = await User.find(filter)
+      .sort({ createdAt: -1 }) // latest first
+      .limit(limit);
+
+    const totalFetched = users.length;
+    const hasMore = totalFetched === limit; // if less than limit, no more users
+
+    res.status(200).json({
       msg: "Users fetched successfully",
       users,
+      hasMore,
+      lastId: users.length ? users[users.length - 1]._id : null,
     });
   } catch (err) {
-    console.error("Error during fetching users", err);
-    res.status(500).json({
-      msg: err.message,
-    });
+    console.error(err);
+    res.status(500).json({ msg: err.message });
   }
 };
+
+
+
 const removeUserDetails = async (req, res) => {
   try {
     const id = req.params.id;

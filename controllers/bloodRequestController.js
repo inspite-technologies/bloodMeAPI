@@ -126,6 +126,7 @@ const approveRespond = async (req, res) => {
     const donorId = req.user._id;
     const requestId = req.params.id;
 
+    // Get donor details
     const donor = await User.findById(donorId).select(
       "name phoneNumber bloodType organizationId"
     );
@@ -135,21 +136,24 @@ const approveRespond = async (req, res) => {
       return res.status(404).json({ msg: "Blood request not found" });
     }
 
-    // Create or update AcceptRequest for this donor
+    // Create/update AcceptRequest
     let saveAccept = await AcceptRequest.findOneAndUpdate(
       { requestId, donorId },
       {
         organizationId: donor.organizationId || null,
         status: "approved",
       },
-      { new: true, upsert: true } // create if not exists
+      { new: true, upsert: true }
     );
 
-    // Populate donor details
-    saveAccept = await saveAccept.populate("donorId", "name phoneNumber bloodType");
+    saveAccept = await saveAccept.populate(
+      "donorId",
+      "name phoneNumber bloodType"
+    );
 
-    // Send notification to requester
+    // Send FCM Notification
     const requester = await User.findById(request.requesterId);
+
     if (requester?.fcmToken) {
       const message = {
         token: requester.fcmToken,
@@ -164,14 +168,32 @@ const approveRespond = async (req, res) => {
           requestId,
         },
       };
-      await admin.messaging().send(message);
+
+      try {
+        await admin.messaging().send(message);
+        console.log("Notification sent successfully");
+      } catch (error) {
+        console.error("FCM Error:", error);
+
+        // HANDLE INVALID TOKEN
+        if (error.code === "messaging/registration-token-not-registered") {
+          console.log("Invalid FCM token detected. Removing from DB...");
+
+          await User.findByIdAndUpdate(requester._id, {
+            $set: { fcmToken: null },
+          });
+
+          console.log("Old FCM token removed successfully.");
+        }
+      }
     }
 
     res.json({
       msg: "Donor confirmed donation & notification sent!",
       savedResponse: saveAccept,
-      bloodRequestStatus: request.status, // unchanged
+      bloodRequestStatus: request.status,
     });
+
   } catch (err) {
     console.error("Error in approveRespond:", err);
     res.status(500).json({ error: err.message });
@@ -328,7 +350,6 @@ const getAllRequestByStatus = async (req, res) => {
 const getAllBloodRequest = async (req, res) => {
   try {
     const userId = req.user._id;
-
     const userLat = parseFloat(req.query.lat);
     const userLng = parseFloat(req.query.lng);
 
@@ -336,19 +357,19 @@ const getAllBloodRequest = async (req, res) => {
       return res.status(400).json({ msg: "Latitude & Longitude required" });
     }
 
-    // ✅ 1. Update user location in DB
-    await User.findByIdAndUpdate(
-      userId,
-      {
-        location: {
-          type: "Point",
-          coordinates: [userLng, userLat],
-        },
-      },
-      { new: true }
-    );
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
-    // ✅ 2. Fetch requests with distance
+    // Update user location
+    await User.findByIdAndUpdate(userId, {
+      location: {
+        type: "Point",
+        coordinates: [userLng, userLat],
+      },
+    });
+
+    // Fetch blood requests with distance and latest first
     const requests = await BloodRequest.aggregate([
       {
         $geoNear: {
@@ -362,9 +383,25 @@ const getAllBloodRequest = async (req, res) => {
           },
         },
       },
+      { $sort: { createdAt: -1 } }, // latest first
+      { $skip: skip },
+      { $limit: limit },
     ]);
 
-    res.status(200).json({ msg: "Requests fetched", data: requests });
+    const total = await BloodRequest.countDocuments({
+      isActive: true,
+      requesterId: { $ne: userId },
+      status: "pending",
+    });
+
+    res.status(200).json({
+      msg: "Requests fetched",
+      data: requests,
+      page,
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+      hasMore: page * limit < total,
+    });
   } catch (error) {
     res.status(500).json({ msg: "Server error", error: error.message });
   }
@@ -454,6 +491,19 @@ const getDonorsList = async (req, res) => {
   }
 };
 
+const getBloodUnits = async (req,res) =>{
+  try{
+    const unitsCount = await BloodRequest.countDocuments({status:'completed'})
+    res.status(200).json({
+      msg:"count fetched successfully",
+      count:unitsCount
+    })
+  }catch (err) {
+    console.error("Error fetching donors list:", err);
+    res.status(500).json({ msg: "Server error", error: err.message });
+  }
+}
+
 export {
   bloodRequest,
   approveRespond,
@@ -465,6 +515,7 @@ export {
   getUserById,
   getHistory,
   getDonorsList,
+  getBloodUnits
 };
 
 //if the donation completed by the user update the donationCount in user schema and also the latest donation date which 2 days ago from today// Also update the request status to completed
