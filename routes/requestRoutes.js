@@ -8,6 +8,8 @@ app.route('/').post(protect,updateFcmToken,bloodRequest).get(protect,getAllBlood
 app.route('/count').get(getBloodUnits)
 app.route('/accept').post(protect,updateFcmToken,acceptBloodRequest).get(protect, getAllRequestByStatus);
 app.route('/reject').post(protect,updateFcmToken,rejectBloodRequest);
+app.route("/history").get(protect, getHistory);
+
 app.route('/approve/:id').post(protect,updateFcmToken,approveRespond);
 app.route('/confirm/:id').post(protect,updateFcmToken,acceptBloodRequest);
 
@@ -17,7 +19,6 @@ app.route('/:id/donors').get(protect,getDonorsList);
 
 // Admin
 app.route("/history/:id").get(getUserById);
-app.route("/history").get(protect, getHistory);
 
 
 export default app

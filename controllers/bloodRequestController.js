@@ -425,7 +425,7 @@ const getUserById = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ msg: "User not found" });
 
-    const history = await BloodRequest.find({ requesterId: user._id });
+    const history = await BloodRequest.find({ donationId: user._id });
     res.status(200).json({ msg: "User history fetched", data: history });
   } catch (err) {
     console.error("Error fetching user history:", err);
@@ -442,26 +442,22 @@ const getHistory = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ msg: "User not found" });
 
-    // Read status from query (optional)
-    const { status } = req.query;
-
-    let filter = { donorId: userId };
-
-    // If "?status=pending" or "?status=completed" passed
-    if (status) {
-      filter.status = status;
-    }
+    // Always fetch only completed history
+    const filter = { 
+      donorId: userId, 
+      status: "completed" 
+    };
 
     const history = await AcceptRequest.find(filter)
       .populate({
         path: "requestId",
-        select: "hospitalName createdAt units",
+        select: "hospitalName patientName hospitalAddress createdAt units",
       })
       .sort({ createdAt: -1 });
 
     res.status(200).json({
-      msg: "History fetched successfully",
-      statusFilter: status || "all",
+      msg: "Completed history fetched successfully",
+      statusFilter: "completed",
       count: history.length,
       data: history,
     });
@@ -473,6 +469,7 @@ const getHistory = async (req, res) => {
     });
   }
 };
+
 
 const getDonorsList = async (req, res) => {
   try {
