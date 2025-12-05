@@ -119,55 +119,37 @@ const updateBanner = async (req, res) => {
 // FETCH ALL WITH PAGINATION
 const fetchAllBanners = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // ----- 1. Safe pagination -----
+    const page = Math.max(parseInt(req.query.page) || 1, 1);  // at least 1
+    const limit = Math.max(parseInt(req.query.limit) || 10, 1); // at least 1
     const skip = (page - 1) * limit;
 
-    // Step 1: Fetch banners
-    let banners = await Banner.find()
+    // ----- 2. AUTO-EXPIRE BANNERS -----
+    const now = new Date();
+
+    // Expire banners that are past endDate and still active
+    await Banner.updateMany(
+      { endDate: { $lt: now }, isActive: true },
+      { $set: { isActive: false } }
+    );
+
+    // ----- 3. Fetch banners (only active) -----
+    const banners = await Banner.find({ isActive: true })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    // Step 2: AUTO-EXPIRE BLOCK
-    const now = new Date();
-    const updateOps = [];
+    // ----- 4. Total count for pagination -----
+    const totalItems = await Banner.countDocuments({ isActive: true });
+    const totalPages = Math.ceil(totalItems / limit);
 
-    banners.forEach((banner) => {
-      const hasExpired = new Date(banner.endDate) < now;
-
-      // Only update if it's expired AND still active
-      if (hasExpired && banner.isActive === true) {
-        updateOps.push(
-          Banner.updateOne(
-            { _id: banner._id },
-            { $set: { isActive: false } }
-          )
-        );
-      }
-    });
-
-    // Step 3: Apply DB updates if needed
-    if (updateOps.length > 0) {
-      await Promise.all(updateOps);
-
-      // Step 4: Re-fetch updated banners after expiry update
-      banners = await Banner.find()
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
-    }
-
-    // Step 5: Count total docs
-    const total = await Banner.countDocuments();
-
-    // Step 6: Respond to client
+    // ----- 5. Respond to client -----
     res.status(200).json({
       msg: "Banners fetched successfully",
       data: banners,
       page,
-      totalPages: Math.ceil(total / limit),
-      totalItems: total,
+      totalPages,
+      totalItems,
     });
 
   } catch (err) {
@@ -175,6 +157,7 @@ const fetchAllBanners = async (req, res) => {
     res.status(500).json({ msg: "Server error", error: err.message });
   }
 };
+
 
 const getEachBanner = async (req, res) => {
   try {
