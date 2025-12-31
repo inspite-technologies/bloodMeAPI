@@ -130,7 +130,7 @@ const userLogin = async (req, res) => {
       return res.status(400).json({ msg: "User not found" });
     }
 
-    if (existUser.isVerified === false) {
+    if (!existUser.isVerified) {
       return res
         .status(400)
         .json({ msg: "Please verify your email before login" });
@@ -141,12 +141,12 @@ const userLogin = async (req, res) => {
       return res.status(400).json({ msg: "Incorrect password" });
     }
 
-    // 🔥 Save/Update FCM Token
+    // ✅ Update FCM token WITHOUT triggering validation
     if (fcmToken) {
-      console.log("Received fcmToken:", fcmToken);
-      existUser.fcmToken = fcmToken;
-      await existUser.save();
-      console.log("Updated user:", existUser);
+      await User.updateOne(
+        { _id: existUser._id },
+        { $set: { fcmToken } }
+      );
     }
 
     return res.status(200).json({
@@ -154,11 +154,13 @@ const userLogin = async (req, res) => {
       token: generateToken(existUser._id),
       userId: existUser._id,
     });
+
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ msg: "Internal server error" });
   }
 };
+
 
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
