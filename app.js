@@ -13,6 +13,7 @@ app.use(
     origin: [
       "http://localhost:5173", // React (Vite)
       "http://localhost:3000", // If using React CRA
+      "https://blood-me-join-page.vercel.app",   
       "http://YOUR_IP:5173",   // React from other devices
       "http://YOUR_IP:8080",   // Flutter Web (if used)
       "*",                     // Allow all (mobile devices)
@@ -50,4 +51,5 @@ app.use("/admin", adminRoutes);
 app.use('/banner', bannerRoutes);
 app.use('/ratings',ratingRoutes)
 export default app;
+
 
