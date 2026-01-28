@@ -6,35 +6,36 @@ import adminRoutes from "./routes/adminRoutes.js";
 import bannerRoutes from './routes/bannerRoutes.js'
 import ratingRoutes from './routes/ratingRoutes.js'
 import cors from 'cors';
-
 const app = express();
-
+// ✅ UPDATED: Allow all origins for development (mobile devices can access)
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",                        // Local Vite dev
-      "http://localhost:3000",                        // Local CRA
-      "https://blood-me-join-page.vercel.app",        // ADD THIS - Your Vercel app
-      "https://bloodme.in",                           // Your production domain
-      // Add any other frontend URLs you're using
+      "http://localhost:5173", // React (Vite)
+      "http://localhost:3000", // If using React CRA
+      "http://YOUR_IP:5173",   // React from other devices
+      "http://YOUR_IP:8080",   // Flutter Web (if used)
+      "*",                     // Allow all (mobile devices)
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
-// ❌ REMOVE THIS - Don't use "*" in production
-// origin: "*" allows all origins but can cause issues with credentials
-
+// For production, you can restrict it:
+// app.use(
+//   cors({
+//     origin: ["http://localhost:8080", "http://192.168.1.100:3000"],
+//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+//     credentials: true,
+//   })
+// );
 // Middleware
 app.use(express.json());
-
 // Routes
 app.get("/", (req, res) => {
   res.send("Hello from app.js 👋");
 });
-
+// ✅ NEW: Add a test route for Flutter to verify connection
 app.get("/api/test", (req, res) => {
   res.json({ 
     message: "Backend is working!",
@@ -42,13 +43,11 @@ app.get("/api/test", (req, res) => {
     status: "success"
   });
 });
-
-app.use("/api/user", userRoutes);
-app.use("/api/request", requestRoutes);
-app.use("/api/organization", organizationRoutes);
-app.use("/api/admin", adminRoutes); 
-app.use('/api/banner', bannerRoutes);
-app.use('/api/ratings', ratingRoutes);
-
+app.use("/user", userRoutes);
+app.use("/request", requestRoutes);
+app.use("/organization", organizationRoutes);
+app.use("/admin", adminRoutes); 
+app.use('/banner', bannerRoutes);
+app.use('/ratings',ratingRoutes)
 export default app;
 
